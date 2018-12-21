@@ -1,0 +1,17 @@
+{
+	"ImportPath": "github.com/johnamadeo/mealbot",
+	"GoVersion": "go1.11",
+	"GodepVersion": "v80",
+	"Deps": [
+		{
+			"ImportPath": "github.com/kr/pretty",
+			"Comment": "v0.1.0",
+			"Rev": "73f6ac0b30a98e433b289500d779f50c1a6f0712"
+		},
+		{
+			"ImportPath": "github.com/kr/text",
+			"Comment": "v0.1.0",
+			"Rev": "e2ffdb16a802fe2bb95e2e35ff34f0e53aeef34f"
+		}
+	]
+}

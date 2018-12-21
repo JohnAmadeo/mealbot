@@ -1,228 +1,332 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"sort"
-
-	"github.com/kr/pretty"
+	"strings"
+	"time"
 )
 
-type Partner struct {
-	name      string
-	mealCount int
-}
-
-type StudentHistory struct {
-	name       string
-	year       int
-	partners   []string
-	mealCounts map[string]int
-}
-
 type Pair struct {
-	name1 string
-	name2 string
+	Id1     string
+	Id2     string
+	ExtraId string
+}
+
+func NewPair(name1 string, name2 string) Pair {
+	if name1 < name2 {
+		return Pair{
+			Id1:     name1,
+			Id2:     name2,
+			ExtraId: "",
+		}
+	} else {
+		return Pair{
+			Id1:     name2,
+			Id2:     name1,
+			ExtraId: "",
+		}
+	}
+}
+
+func (p Pair) String() string {
+	if p.ExtraId == "" {
+		return fmt.Sprintf("%s %s", p.Id1, p.Id2)
+	} else {
+		return fmt.Sprintf("%s %s %s", p.Id1, p.Id2, p.ExtraId)
+	}
+}
+
+func (p *Pair) AddExtraPerson(id string) error {
+	if p.ExtraId != "" {
+		return errors.New("Pair already has a 3rd person!")
+	}
+	p.ExtraId = id
+	return nil
+}
+
+type Round struct {
+	Number int
+	Pairs  map[Pair]bool
+	Paired map[string]bool
+}
+
+func NewRound(roundNumber int) Round {
+	return Round{
+		Number: roundNumber,
+		Pairs:  map[Pair]bool{},
+		Paired: map[string]bool{},
+	}
+}
+
+func (r Round) AddPair(student1 string, student2 string) {
+	r.Paired[student1] = true
+	r.Paired[student2] = true
+
+	pair := NewPair(student1, student2)
+	// fmt.Println(pair)
+	r.Pairs[pair] = true
+}
+
+func (r Round) IsPaired(student string) bool {
+	if _, ok := r.Paired[student]; ok {
+		return true
+	}
+	return false
+}
+
+func (r Round) GetPairForExtraStudent(student Student) (Pair, error) {
+	if len(r.Pairs) == 0 {
+		return Pair{}, errors.New("No pair of 2 people can be found this round")
+	}
+
+	selectedPair := Pair{}
+	// Pick random pair as fallback
+	for pair, _ := range r.Pairs {
+		if pair.ExtraId != "" {
+			continue
+		}
+		selectedPair = pair
+		break
+	}
+
+	// Pick a pair that contains someone the extra student is least-paired w/
+	minCount := r.Number + 1
+	for _, partnerId := range student.PartnerIds {
+		if student.PairCounts[partnerId] < minCount {
+			minCount = student.PairCounts[partnerId]
+		}
+	}
+
+	for pair, _ := range r.Pairs {
+		id1Pairs := student.PairCounts[pair.Id1]
+		id2Pairs := student.PairCounts[pair.Id2]
+		if id1Pairs == minCount && id2Pairs == minCount {
+			selectedPair = pair
+			break
+		}
+	}
+
+	return selectedPair, nil
+
+}
+
+func (r Round) AddExtraStudentToPair(pair Pair, student string) error {
+	if _, ok := r.Pairs[pair]; !ok {
+		return errors.New("Specified pair does not exist in the round")
+	}
+
+	delete(r.Pairs, pair)
+	pair.AddExtraPerson(student)
+	r.Pairs[pair] = true
+	r.Paired[student] = true
+
+	return nil
+}
+
+func (r Round) String() string {
+	header := fmt.Sprintf("---------\nRound %d\n---------\n", r.Number)
+
+	pairs := []string{}
+	for pair, _ := range r.Pairs {
+		pairs = append(pairs, pair.String())
+	}
+
+	return header + strings.Join(pairs, "\n")
+}
+
+type Student struct {
+	Id          string
+	Year        int
+	PartnerIds  []string
+	YearmateIds []string
+	PairCounts  map[string]int
+}
+
+type StudentMap map[string]Student
+
+func (sm *StudentMap) AddPair(studentId string, partnerId string) {
+	if (*sm)[studentId].PairCounts[partnerId] > 0 {
+		fmt.Printf("REPEAT: %s %s\n", studentId, partnerId)
+	}
+
+	(*sm)[studentId].PairCounts[partnerId] += 1
+	(*sm)[partnerId].PairCounts[studentId] += 1
+}
+
+func (sm *StudentMap) AddExtraStudentToPair(pair Pair, studentId string) {
+	(*sm)[pair.Id1].PairCounts[studentId] += 1
+	(*sm)[pair.Id2].PairCounts[studentId] += 1
+	(*sm)[studentId].PairCounts[pair.Id1] += 1
+	(*sm)[studentId].PairCounts[pair.Id2] += 1
+}
+
+func (sm StudentMap) String() string {
+	str := ""
+	for studentId, _ := range sm {
+		str += fmt.Sprintf("%s\n", studentId)
+		for partnerId, count := range sm[studentId].PairCounts {
+			str += fmt.Sprintf("\t%s:%d\n", partnerId, count)
+		}
+		str += "\n"
+	}
+	return str
+}
+
+func (sm StudentMap) Repeats() ([]Pair, int) {
+	repeats := []Pair{}
+	for _, student := range sm {
+		for partnerId, count := range student.PairCounts {
+			if count > 1 {
+				repeats = append(repeats, NewPair(student.Id, partnerId))
+			}
+		}
+	}
+	return repeats, len(repeats) / 2
+}
+
+type Partner struct {
+	Id        string
+	MealCount int
 }
 
 type Partners []Partner
 
 func (p Partners) Len() int           { return len(p) }
-func (p Partners) Less(i, j int) bool { return p[i].mealCount < p[j].mealCount }
+func (p Partners) Less(i, j int) bool { return p[i].MealCount < p[j].MealCount }
 func (p Partners) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
-func makePair(name1 string, name2 string) Pair {
-	if name1 < name2 {
-		return Pair{
-			name1: name1,
-			name2: name2,
-		}
-	} else {
-		return Pair{
-			name1: name2,
-			name2: name1,
+func sortPartnersByMealCount(partners *[]Partner) {
+	sort.Sort(Partners(*partners))
+}
+
+func findUnpairedPartners(
+	partners *[]Partner,
+	student Student,
+	round Round,
+	extraStudentId string,
+) {
+	for _, partnerId := range student.PartnerIds {
+		if !round.IsPaired(partnerId) && partnerId != extraStudentId {
+			*partners = append(*partners, Partner{
+				Id:        partnerId,
+				MealCount: student.PairCounts[partnerId],
+			})
 		}
 	}
 }
 
-func getPartners(students [][]string, studentYear int) []string {
-	partners := []string{}
-	for year, _ := range students {
-		if studentYear != year {
-			partners = append(partners, students[year]...)
+func findSameYearPartners(partners *[]Partner, student Student, round Round) {
+	for _, partnerId := range student.YearmateIds {
+		if student.Id == partnerId || round.IsPaired(partnerId) {
+			continue
+		}
+		*partners = append(*partners, Partner{
+			Id:        partnerId,
+			MealCount: student.PairCounts[partnerId],
+		})
+	}
+	rand.Shuffle(len(*partners), Partners(*partners).Swap)
+}
+
+func findLeastPairedPartners(partners *[]Partner, round Round) {
+	minMeals := round.Number + 1
+	for _, partner := range *partners {
+		if partner.MealCount < minMeals {
+			minMeals = partner.MealCount
 		}
 	}
-	return partners
-}
-
-func initHistory(partners []string) map[string]int {
-	history := map[string]int{}
-	for _, student := range partners {
-		history[student] = 0
-	}
-	return history
-}
-
-func getNumStudents(students [][]string) int {
-	num := 0
-	for _, yearStudents := range students {
-		num += len(yearStudents)
-	}
-	return num
-}
-
-func getStudentList(students [][]string) []string {
-	flatStudents := []string{}
-	for _, yearStudents := range students {
-		for _, student := range yearStudents {
-			flatStudents = append(flatStudents, student)
+	leastPairedPartners := []Partner{}
+	for _, partner := range *partners {
+		if partner.MealCount == minMeals {
+			leastPairedPartners = append(leastPairedPartners, partner)
 		}
 	}
-	return flatStudents
+	*partners = leastPairedPartners
 }
 
-func getStudentHistories(students [][]string) map[string]StudentHistory {
-	studentHistories := map[string]StudentHistory{}
-	for year, yearStudents := range students {
-		for _, student := range yearStudents {
-			partners := getPartners(students, year)
-			history := initHistory(partners)
-
-			studentHistories[student] = StudentHistory{
-				name:       student,
-				year:       year,
-				partners:   partners,
-				mealCounts: history,
-			}
-		}
-	}
-	return studentHistories
+func selectRandomPartner(partners []Partner) Partner {
+	return partners[rand.Intn(len(partners))]
 }
 
 func main() {
-	// pairs := map[Pair]bool{}
+	rand.Seed(time.Now().UTC().UnixNano())
+	raw := readRawCSV("test.csv")
 
-	// pairs := map[string][]string{}
+	// raw := [][]string{
+	// 	// []string{"A1", "A2", "A3", "A4"},
+	// 	// []string{"B1", "B2"},
+	// 	// []string{"C1"},
+	// 	// []string{"D1", "D2", "D3"},
+	//
+	// 	[]string{"A1", "A2", "A3", "A4"},
+	// 	[]string{"B1", "B2"},
+	// 	[]string{"C1"},
+	// 	[]string{"D1", "D2", "D3"},
+	//
+	// 	// []string{"A1", "A2", "A3", "A4"},
+	// 	// []string{"B1", "B2", "B3", "B4"},
+	// 	// []string{"C1", "C2", "C3", "C4"},
+	// 	// []string{"D1", "D2", "D3", "D4"},
+	// }
 
-	raw := [][]string{
-		[]string{"A1", "A2", "A3", "A4"},
-		[]string{"B1", "B2"},
-		[]string{"C1"},
-		[]string{"D1", "D2", "D3"},
+	students := initStudents(raw)
+	studentIds := getStudentIds(raw)
 
-		// []string{"A1", "A2", "A3", "A4"},
-		// []string{"B1", "B2", "B3", "B4"},
-		// []string{"C1", "C2", "C3", "C4"},
-		// []string{"D1", "D2", "D3", "D4"},
-	}
-
-	studentHistories := getStudentHistories(raw)
-	students := getStudentList(raw)
-	studentsByYear := raw
-
-	fmt.Println(studentsByYear)
-
-	rounds := 5
+	rounds := 6
 	for i := 0; i < rounds; i++ {
-		fmt.Printf("-----------------\nRound %d\n-----------------\n", i)
-		pairs := PairSet{}
-		paired := map[string]bool{}
+		round := NewRound(i)
 
-		// oddStudentOut := ""
-		// if len(students)%2 == 1 {
-		// 	oddStudentOut = flatStudents[rand.Intn(numStudents)]
-		// }
-
-		rand.Shuffle(len(students), func(i int, j int) {
-			students[i], students[j] = students[j], students[i]
+		rand.Shuffle(len(studentIds), func(i int, j int) {
+			studentIds[i], studentIds[j] = studentIds[j], studentIds[i]
 		})
 
-		for _, student := range students {
-			if _, ok := paired[student]; ok {
+		// if the no. of students is even, 1 of the meals must have 3 students;
+		// hold out this extra student and add it back in to a randomly chosen
+		// pair at the end of the round
+		extraStudentId := ""
+		if len(students)%2 == 1 {
+			extraStudentId = studentIds[rand.Intn(len(studentIds))]
+		}
+
+		for _, studentId := range studentIds {
+			if round.IsPaired(studentId) || studentId == extraStudentId {
 				continue
 			}
 
-			partnersWCount := []Partner{}
-			studentHistory := studentHistories[student]
-			// add all potential partners that don't have a meal pairing already
-			for _, partner := range studentHistory.partners {
-				if _, ok := paired[partner]; !ok {
-					partnersWCount = append(partnersWCount, Partner{
-						name:      partner,
-						mealCount: studentHistory.mealCounts[partner],
-					})
-				}
+			partners := []Partner{}
+			student := students[studentId]
+
+			findUnpairedPartners(&partners, student, round, extraStudentId)
+			// fmt.Println("unpaired", studentId, partners)
+			sortPartnersByMealCount(&partners)
+			// fmt.Println("sorted unpaired", studentId, partners)
+
+			if len(partners) == 0 {
+				findSameYearPartners(&partners, student, round)
+				// fmt.Println("same year", studentId, partners)
 			}
 
-			// sort partners in ascending order of no. of meals had
-			sort.Sort(Partners(partnersWCount))
+			findLeastPairedPartners(&partners, round)
+			// fmt.Println("least paired", studentId, partners)
 
-			// fmt.Println(student, partnersWCount)
+			partnerId := selectRandomPartner(partners).Id
 
-			// filter out top 50% of partners in terms of no. of meals had
-			if len(partnersWCount) > 0 {
-				partnersWCount = partnersWCount[:(len(partnersWCount)/2)+1]
-			}
-
-			// fmt.Println(student, partnersWCount)
-
-			// pair student with a same-year partner since all other possible
-			// partners are not available
-			if len(partnersWCount) == 0 {
-				for _, sameYearStudent := range studentsByYear[studentHistory.year] {
-					if student == sameYearStudent {
-						continue
-					}
-					if _, ok := paired[sameYearStudent]; ok {
-						continue
-					}
-					partnersWCount = append(partnersWCount, Partner{
-						name:      sameYearStudent,
-						mealCount: studentHistory.mealCounts[sameYearStudent],
-					})
-				}
-				rand.Shuffle(len(partnersWCount), Partners(partnersWCount).Swap)
-			}
-
-			// fmt.Println("Same year partners:", student, partnersWCount)
-
-			minMeals := rounds + 1
-			for _, partner := range partnersWCount {
-				if partner.mealCount < minMeals {
-					minMeals = partner.mealCount
-				}
-			}
-			newPartnersWCount := []Partner{}
-			for _, partner := range partnersWCount {
-				if partner.mealCount == minMeals {
-					newPartnersWCount = append(newPartnersWCount, partner)
-				}
-			}
-			partnersWCount = newPartnersWCount
-
-			// fmt.Println(student, partnersWCount)
-
-			// partner := partnersWCount[rand.Intn(len(partnersWCount))].name
-			partner := partnersWCount[0].name
-
-			studentHistories[student].mealCounts[partner] += 1
-			studentHistories[partner].mealCounts[student] += 1
-
-			paired[student] = true
-			paired[partner] = true
-
-			pairs[makePair(student, partner)] = true
-			fmt.Println(student, partner)
-
-			// fmt.Println(student)
-			// pairs.Print()
-			// fmt.Println(paired)
+			students.AddPair(studentId, partnerId)
+			round.AddPair(studentId, partnerId)
 		}
 
-		// pairs.Print()
-		// pretty.Println(studentHistories)
-		// pretty.Println(pairs)
+		if extraStudentId != "" {
+			pair, _ := round.GetPairForExtraStudent(students[extraStudentId])
+			students.AddExtraStudentToPair(pair, extraStudentId)
+			round.AddExtraStudentToPair(pair, extraStudentId)
+		}
+
+		fmt.Println(round)
 	}
 
-	pretty.Println(studentHistories)
+	fmt.Println(students)
+	_, repeats := students.Repeats()
 }

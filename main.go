@@ -33,9 +33,9 @@ func NewPair(name1 string, name2 string) Pair {
 
 func (p Pair) String() string {
 	if p.ExtraId == "" {
-		return fmt.Sprintf("%s %s", p.Id1, p.Id2)
+		return fmt.Sprintf("%-30s %-30s", p.Id1, p.Id2)
 	} else {
-		return fmt.Sprintf("%s %s %s", p.Id1, p.Id2, p.ExtraId)
+		return fmt.Sprintf("%-30s %-30s %-30s", p.Id1, p.Id2, p.ExtraId)
 	}
 }
 
@@ -48,26 +48,30 @@ func (p *Pair) AddExtraPerson(id string) error {
 }
 
 type Round struct {
-	Number int
-	Pairs  map[Pair]bool
-	Paired map[string]bool
+	Number           int
+	Pairs            map[Pair]bool
+	Paired           map[string]bool
+	DrawOrderedPairs []Pair
 }
 
 func NewRound(roundNumber int) Round {
 	return Round{
-		Number: roundNumber,
-		Pairs:  map[Pair]bool{},
-		Paired: map[string]bool{},
+		Number:           roundNumber,
+		Pairs:            map[Pair]bool{},
+		Paired:           map[string]bool{},
+		DrawOrderedPairs: []Pair{},
 	}
 }
 
-func (r Round) AddPair(student1 string, student2 string) {
+func (r *Round) AddPair(student1 string, student2 string) {
 	r.Paired[student1] = true
 	r.Paired[student2] = true
 
 	pair := NewPair(student1, student2)
 	// fmt.Println(pair)
 	r.Pairs[pair] = true
+
+	r.DrawOrderedPairs = append(r.DrawOrderedPairs, pair)
 }
 
 func (r Round) IsPaired(student string) bool {
@@ -113,15 +117,21 @@ func (r Round) GetPairForExtraStudent(student Student) (Pair, error) {
 
 }
 
-func (r Round) AddExtraStudentToPair(pair Pair, student string) error {
+func (r Round) AddExtraStudentToPair(pair Pair, studentId string) error {
 	if _, ok := r.Pairs[pair]; !ok {
 		return errors.New("Specified pair does not exist in the round")
 	}
 
+	for i, currPair := range r.DrawOrderedPairs {
+		if currPair == pair {
+			r.DrawOrderedPairs[i].AddExtraPerson(studentId)
+		}
+	}
+
 	delete(r.Pairs, pair)
-	pair.AddExtraPerson(student)
+	pair.AddExtraPerson(studentId)
 	r.Pairs[pair] = true
-	r.Paired[student] = true
+	r.Paired[studentId] = true
 
 	return nil
 }
@@ -130,11 +140,11 @@ func (r Round) String() string {
 	header := fmt.Sprintf("---------\nRound %d\n---------\n", r.Number)
 
 	pairs := []string{}
-	for pair, _ := range r.Pairs {
+	for _, pair := range r.DrawOrderedPairs {
 		pairs = append(pairs, pair.String())
 	}
 
-	return header + strings.Join(pairs, "\n")
+	return header + strings.Join(pairs, "\n") + "\n"
 }
 
 type Student struct {
@@ -168,7 +178,7 @@ func (sm StudentMap) String() string {
 	for studentId, _ := range sm {
 		str += fmt.Sprintf("%s\n", studentId)
 		for partnerId, count := range sm[studentId].PairCounts {
-			str += fmt.Sprintf("\t%s:%d\n", partnerId, count)
+			str += fmt.Sprintf("\t%-30s : %d\n", partnerId, count)
 		}
 		str += "\n"
 	}
@@ -327,6 +337,7 @@ func main() {
 		fmt.Println(round)
 	}
 
-	fmt.Println(students)
+	// fmt.Println(students)
 	_, repeats := students.Repeats()
+	fmt.Println(repeats)
 }

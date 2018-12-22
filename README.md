@@ -11,21 +11,6 @@ Goals
 - what kind of pairings do we want to avoid?
 	- naive answer is "repeat pairings", but what if we are in situation where repeat pairing is unavoidable? 
 
-Setup
-A1, A2, B1, C1, D2
-3 meals
-A1-> A2 (4/4), B1 (3/4), D2 (2/4)
-A2 -> A1 ^, D2 (3/4), B1 (3/4) 
-B1 -> A1 ^, A2 ^, D2 (2/4)
-D2 -> A1 ^, A2 ^, D2 ^
-C1 -> SHUT OUT :(
-// ALGORITHM DOESN'T WORK => Generalizable or only because no. students is odd
-// Even if it's due to odd no., no easy way to capture this since our algorithm does not operate on a per-round basis
-
-Loop
-A1 randomly selects A2
-- A1 has had 0 pairings w/ 
-
 Map
 A1 -> {
 	min: 0, // min no. of meals A1 has had among all possible candidates
@@ -66,5 +51,8 @@ Pseudocode 2
 		- Record the pairing in the set + pairing memory
 	- Pick a random pair and the odd student out (updating memory as well)
 		
-		
-		
+Upload CSV -> Create members in table 
+Select cross-match criteria chip -> Save in org table 
+Change rounds (POST all pending rounds) -> Delete all pending rounds rounds; and re-insert
+Add/remove member -> add row to Members table 
+Run a round -> Load history, run rounds, and insert new history + new pairs		

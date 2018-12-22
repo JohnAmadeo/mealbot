@@ -1,12 +1,20 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"sort"
 	"strings"
 	"time"
+)
+
+const (
+	Border    = "------------------------"
+	MaxTries  = 5
+	NumRounds = 6
 )
 
 type Pair struct {
@@ -51,7 +59,7 @@ type Round struct {
 	Number           int
 	Pairs            map[Pair]bool
 	Paired           map[string]bool
-	DrawOrderedPairs []Pair
+	DrawOrderedPairs []Pair // for logging; keeps order in which pairs were made
 }
 
 func NewRound(roundNumber int) Round {
@@ -68,7 +76,6 @@ func (r *Round) AddPair(student1 string, student2 string) {
 	r.Paired[student2] = true
 
 	pair := NewPair(student1, student2)
-	// fmt.Println(pair)
 	r.Pairs[pair] = true
 
 	r.DrawOrderedPairs = append(r.DrawOrderedPairs, pair)
@@ -157,13 +164,17 @@ type Student struct {
 
 type StudentMap map[string]Student
 
-func (sm *StudentMap) AddPair(studentId string, partnerId string) {
+func (sm *StudentMap) AddPair(studentId string, partnerId string) bool {
+	isRepeat := false
 	if (*sm)[studentId].PairCounts[partnerId] > 0 {
 		fmt.Printf("REPEAT: %s %s\n", studentId, partnerId)
+		isRepeat = true
 	}
 
 	(*sm)[studentId].PairCounts[partnerId] += 1
 	(*sm)[partnerId].PairCounts[studentId] += 1
+
+	return isRepeat
 }
 
 func (sm *StudentMap) AddExtraStudentToPair(pair Pair, studentId string) {
@@ -264,80 +275,82 @@ func selectRandomPartner(partners []Partner) Partner {
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
 	raw := readRawCSV("test.csv")
-
 	// raw := [][]string{
-	// 	// []string{"A1", "A2", "A3", "A4"},
-	// 	// []string{"B1", "B2"},
-	// 	// []string{"C1"},
-	// 	// []string{"D1", "D2", "D3"},
-	//
-	// 	[]string{"A1", "A2", "A3", "A4"},
+	// 	[]string{"A1", "A2"},
 	// 	[]string{"B1", "B2"},
-	// 	[]string{"C1"},
-	// 	[]string{"D1", "D2", "D3"},
-	//
-	// 	// []string{"A1", "A2", "A3", "A4"},
-	// 	// []string{"B1", "B2", "B3", "B4"},
-	// 	// []string{"C1", "C2", "C3", "C4"},
-	// 	// []string{"D1", "D2", "D3", "D4"},
 	// }
 
 	students := initStudents(raw)
-	studentIds := getStudentIds(raw)
-
-	rounds := 6
-	for i := 0; i < rounds; i++ {
-		round := NewRound(i)
-
-		rand.Shuffle(len(studentIds), func(i int, j int) {
-			studentIds[i], studentIds[j] = studentIds[j], studentIds[i]
-		})
-
-		// if the no. of students is even, 1 of the meals must have 3 students;
-		// hold out this extra student and add it back in to a randomly chosen
-		// pair at the end of the round
-		extraStudentId := ""
-		if len(students)%2 == 1 {
-			extraStudentId = studentIds[rand.Intn(len(studentIds))]
-		}
-
-		for _, studentId := range studentIds {
-			if round.IsPaired(studentId) || studentId == extraStudentId {
-				continue
-			}
-
-			partners := []Partner{}
-			student := students[studentId]
-
-			findUnpairedPartners(&partners, student, round, extraStudentId)
-			// fmt.Println("unpaired", studentId, partners)
-			sortPartnersByMealCount(&partners)
-			// fmt.Println("sorted unpaired", studentId, partners)
-
-			if len(partners) == 0 {
-				findSameYearPartners(&partners, student, round)
-				// fmt.Println("same year", studentId, partners)
-			}
-
-			findLeastPairedPartners(&partners, round)
-			// fmt.Println("least paired", studentId, partners)
-
-			partnerId := selectRandomPartner(partners).Id
-
-			students.AddPair(studentId, partnerId)
-			round.AddPair(studentId, partnerId)
-		}
-
-		if extraStudentId != "" {
-			pair, _ := round.GetPairForExtraStudent(students[extraStudentId])
-			students.AddExtraStudentToPair(pair, extraStudentId)
-			round.AddExtraStudentToPair(pair, extraStudentId)
-		}
-
-		fmt.Println(round)
+	studentBytes, err := json.Marshal(students)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	// fmt.Println(students)
+	studentIds := getStudentIds(raw)
+
+	for roundNum := 0; roundNum < NumRounds; roundNum++ {
+		tries := 0
+		// retry until a) a round w/o repeats is found, or b) MaxTries is reached
+		for {
+			var tempStudents StudentMap
+			json.Unmarshal(studentBytes, &tempStudents)
+
+			round := NewRound(roundNum)
+			numRepeats := 0
+
+			rand.Shuffle(len(studentIds), func(i int, j int) {
+				studentIds[i], studentIds[j] = studentIds[j], studentIds[i]
+			})
+
+			// hold out odd student out and add it back in at the end of round
+			extraStudentId := ""
+			if len(tempStudents)%2 == 1 {
+				extraStudentId = studentIds[rand.Intn(len(studentIds))]
+			}
+
+			for _, studentId := range studentIds {
+				if round.IsPaired(studentId) || studentId == extraStudentId {
+					continue
+				}
+
+				partners := []Partner{}
+				student := tempStudents[studentId]
+
+				findUnpairedPartners(&partners, student, round, extraStudentId)
+				// fmt.Println("unpaired", studentId, partners)
+
+				if len(partners) == 0 {
+					findSameYearPartners(&partners, student, round)
+					// fmt.Println("same year", studentId, partners)
+				}
+
+				findLeastPairedPartners(&partners, round)
+
+				partnerId := selectRandomPartner(partners).Id
+
+				round.AddPair(studentId, partnerId)
+				repeat := tempStudents.AddPair(studentId, partnerId)
+				if repeat {
+					numRepeats += 1
+				}
+			}
+
+			if extraStudentId != "" {
+				pair, _ := round.GetPairForExtraStudent(tempStudents[extraStudentId])
+				tempStudents.AddExtraStudentToPair(pair, extraStudentId)
+				round.AddExtraStudentToPair(pair, extraStudentId)
+			}
+
+			tries += 1
+
+			if numRepeats == 0 || tries == MaxTries {
+				students = tempStudents
+				fmt.Println(round)
+				break
+			}
+		}
+	}
+
 	_, repeats := students.Repeats()
 	fmt.Println(repeats)
 }

@@ -163,24 +163,38 @@ type Student struct {
 
 type StudentMap map[string]Student
 
-func (sm *StudentMap) AddPair(studentId string, partnerId string) bool {
-	isRepeat := false
+func (sm *StudentMap) AddPair(studentId string, partnerId string) int {
+	repeats := 0
 	if (*sm)[studentId].PairCounts[partnerId] > 0 {
 		fmt.Printf("REPEAT: %s %s\n", studentId, partnerId)
-		isRepeat = true
+		repeats += 1
 	}
 
 	(*sm)[studentId].PairCounts[partnerId] += 1
 	(*sm)[partnerId].PairCounts[studentId] += 1
 
-	return isRepeat
+	return repeats
 }
 
-func (sm *StudentMap) AddExtraStudentToPair(pair Pair, studentId string) {
+func (sm *StudentMap) AddExtraStudentToPair(pair Pair, studentId string) int {
+	repeats := 0
+
+	if (*sm)[pair.Id1].PairCounts[studentId] > 0 {
+		fmt.Printf("REPEAT: %s %s\n", studentId, pair.Id1)
+		repeats += 1
+	}
+
+	if (*sm)[pair.Id2].PairCounts[studentId] > 0 {
+		fmt.Printf("REPEAT: %s %s\n", studentId, pair.Id2)
+		repeats += 1
+	}
+
 	(*sm)[pair.Id1].PairCounts[studentId] += 1
 	(*sm)[pair.Id2].PairCounts[studentId] += 1
 	(*sm)[studentId].PairCounts[pair.Id1] += 1
 	(*sm)[studentId].PairCounts[pair.Id2] += 1
+
+	return repeats
 }
 
 func (sm StudentMap) String() string {
@@ -195,12 +209,12 @@ func (sm StudentMap) String() string {
 	return str
 }
 
-func (sm StudentMap) Repeats() ([]Pair, int) {
-	repeats := []Pair{}
+func (sm StudentMap) Repeats() (map[Pair]bool, int) {
+	repeats := map[Pair]bool{}
 	for _, student := range sm {
 		for partnerId, count := range student.PairCounts {
 			if count > 1 {
-				repeats = append(repeats, NewPair(student.Id, partnerId))
+				repeats[NewPair(student.Id, partnerId)] = true
 			}
 		}
 	}
@@ -229,20 +243,30 @@ func findUnpairedPartners(
 	extraStudentId string,
 ) {
 	for _, partnerId := range student.PartnerIds {
-		if !round.IsPaired(partnerId) && partnerId != extraStudentId {
-			*partners = append(*partners, Partner{
-				Id:        partnerId,
-				MealCount: student.PairCounts[partnerId],
-			})
+		if round.IsPaired(partnerId) || partnerId == extraStudentId {
+			continue
 		}
+
+		*partners = append(*partners, Partner{
+			Id:        partnerId,
+			MealCount: student.PairCounts[partnerId],
+		})
 	}
 }
 
-func findSameYearPartners(partners *[]Partner, student Student, round Round) {
+func findSameYearPartners(
+	partners *[]Partner,
+	student Student,
+	round Round,
+	extraStudentId string,
+) {
 	for _, partnerId := range student.YearmateIds {
-		if student.Id == partnerId || round.IsPaired(partnerId) {
+		if student.Id == partnerId ||
+			round.IsPaired(partnerId) ||
+			partnerId == extraStudentId {
 			continue
 		}
+
 		*partners = append(*partners, Partner{
 			Id:        partnerId,
 			MealCount: student.PairCounts[partnerId],
@@ -272,13 +296,17 @@ func selectRandomPartner(partners []Partner) Partner {
 }
 
 func main() {
-	// TODO: Need to dynamically decide NumRounds & generalize
+	// TODO: Need to dynamically decide NumRounds & trie
 
 	rand.Seed(time.Now().UTC().UnixNano())
 	raw := readRawCSV("test.csv")
 	// raw := [][]string{
-	// 	[]string{"A1", "A2"},
-	// 	[]string{"B1", "B2"},
+	// 	[]string{"A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "A11"},
+	// 	[]string{"B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10", "B11"},
+	// }
+
+	// raw := [][]string{
+	// 	[]string{"A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10"},
 	// }
 
 	students := initStudents(raw)
@@ -295,10 +323,6 @@ func main() {
 			round := NewRound(roundNum)
 			numRepeats := 0
 
-			rand.Shuffle(len(studentIds), func(i int, j int) {
-				studentIds[i], studentIds[j] = studentIds[j], studentIds[i]
-			})
-
 			// hold out odd student out and add it back in at the end of round
 			extraStudentId := ""
 			if len(tempStudents)%2 == 1 {
@@ -314,28 +338,31 @@ func main() {
 				student := tempStudents[studentId]
 
 				findUnpairedPartners(&partners, student, round, extraStudentId)
-				// fmt.Println("unpaired", studentId, partners)
-
 				if len(partners) == 0 {
-					findSameYearPartners(&partners, student, round)
-					// fmt.Println("same year", studentId, partners)
+					findSameYearPartners(
+						&partners,
+						student,
+						round,
+						extraStudentId,
+					)
 				}
-
 				findLeastPairedPartners(&partners, round)
 
 				partnerId := selectRandomPartner(partners).Id
 
 				round.AddPair(studentId, partnerId)
-				repeat := tempStudents.AddPair(studentId, partnerId)
-				if repeat {
-					numRepeats += 1
-				}
+				numRepeats += tempStudents.AddPair(studentId, partnerId)
 			}
 
 			if extraStudentId != "" {
-				pair, _ := round.GetPairForExtraStudent(tempStudents[extraStudentId])
-				tempStudents.AddExtraStudentToPair(pair, extraStudentId)
+				pair, _ := round.GetPairForExtraStudent(
+					tempStudents[extraStudentId],
+				)
 				round.AddExtraStudentToPair(pair, extraStudentId)
+				numRepeats += tempStudents.AddExtraStudentToPair(
+					pair,
+					extraStudentId,
+				)
 			}
 
 			tries += 1
@@ -343,11 +370,12 @@ func main() {
 			if numRepeats == 0 || tries == MaxTries {
 				students = tempStudents
 				fmt.Println(round)
+				fmt.Printf("%d repeats\n", numRepeats)
 				break
 			}
 		}
 	}
 
 	_, repeats := students.Repeats()
-	fmt.Println(repeats)
+	fmt.Printf("Total: %d repeats\n", repeats)
 }

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"math/rand"
 	"sort"
 	"strings"
@@ -273,6 +272,8 @@ func selectRandomPartner(partners []Partner) Partner {
 }
 
 func main() {
+	// TODO: Need to dynamically decide NumRounds & generalize
+
 	rand.Seed(time.Now().UTC().UnixNano())
 	raw := readRawCSV("test.csv")
 	// raw := [][]string{
@@ -281,17 +282,13 @@ func main() {
 	// }
 
 	students := initStudents(raw)
-	studentBytes, err := json.Marshal(students)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	studentIds := getStudentIds(raw)
 
 	for roundNum := 0; roundNum < NumRounds; roundNum++ {
 		tries := 0
 		// retry until a) a round w/o repeats is found, or b) MaxTries is reached
 		for {
+			studentBytes, _ := json.Marshal(students)
 			var tempStudents StudentMap
 			json.Unmarshal(studentBytes, &tempStudents)
 

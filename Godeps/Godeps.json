@@ -2,5 +2,34 @@
 	"ImportPath": "github.com/johnamadeo/mealbot",
 	"GoVersion": "go1.11",
 	"GodepVersion": "v80",
-	"Deps": []
+	"Deps": [
+		{
+			"ImportPath": "github.com/auth0/go-jwt-middleware",
+			"Rev": "5493cabe49f7bfa6e2ec444a09d334d90cd4e2bd"
+		},
+		{
+			"ImportPath": "github.com/dgrijalva/jwt-go",
+			"Comment": "v3.2.0-4-g3af4c74",
+			"Rev": "3af4c746e1c248ee8491a3e0c6f7a9cd831e95f8"
+		},
+		{
+			"ImportPath": "github.com/google/uuid",
+			"Comment": "1.0.0-8-g9b3b1e0",
+			"Rev": "9b3b1e0f5f99ae461456d768e7d301a7acdaa2d8"
+		},
+		{
+			"ImportPath": "github.com/johnamadeo/server",
+			"Rev": "3cd1bc6d2320d235ba681a925e015c0589d63791"
+		},
+		{
+			"ImportPath": "github.com/lib/pq",
+			"Comment": "v1.0.0-6-g9eb73ef",
+			"Rev": "9eb73efc1fcc404148b56765b0d3f61d9a5ef8ee"
+		},
+		{
+			"ImportPath": "github.com/lib/pq/oid",
+			"Comment": "v1.0.0-6-g9eb73ef",
+			"Rev": "9eb73efc1fcc404148b56765b0d3f61d9a5ef8ee"
+		}
+	]
 }

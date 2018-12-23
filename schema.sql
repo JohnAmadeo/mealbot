@@ -19,8 +19,8 @@ CREATE TABLE members (
 
 CREATE TABLE pairs (
     organization VARCHAR REFERENCES organizations(name),
-    id1 VARCHAR REFERENCES members(id),
-    id2 VARCHAR REFERENCES members(id),
+    id1 VARCHAR REFERENCES members(email),
+    id2 VARCHAR REFERENCES members(email),
     round INTEGER NOT NULL CHECK(round > 0)
 );
 

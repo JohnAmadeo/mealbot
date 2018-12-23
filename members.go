@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/johnamadeo/server"
 )
 
@@ -28,7 +27,7 @@ const (
 
 type Member struct {
 	Organization string
-	Id           string
+	Email        string
 	Name         string
 	Metadata     map[string]string
 	PairCounts   map[string]int
@@ -126,10 +125,13 @@ func createMembersFromCSV(filename string) error {
 		}
 
 		name := ""
+		email := ""
 		metadata := map[string]string{}
 		for i, val := range row {
 			if headers[i] == "name" {
 				name = val
+			} else if headers[i] == "email" {
+				email = val
 			} else {
 				metadata[headers[i]] = val
 			}
@@ -137,7 +139,7 @@ func createMembersFromCSV(filename string) error {
 
 		members = append(members, Member{
 			Organization: "test", // Need to grab from HTTP request
-			Id:           uuid.New().String(),
+			Email:        email,
 			Name:         name,
 			Metadata:     metadata,
 			PairCounts:   map[string]int{}, // fill in later
@@ -149,7 +151,7 @@ func createMembersFromCSV(filename string) error {
 			if i == j {
 				continue
 			}
-			members[i].PairCounts[members[j].Id] = 0
+			members[i].PairCounts[members[j].Email] = 0
 		}
 	}
 
@@ -161,6 +163,7 @@ func createMembersFromCSV(filename string) error {
 	return nil
 }
 
+// TODO: Batch insert
 func saveMembersInDB(members []Member) error {
 	db, err := server.CreateDBConnection(LocalDBConnection)
 	defer db.Close()
@@ -168,42 +171,71 @@ func saveMembersInDB(members []Member) error {
 		return err
 	}
 
-	placeholders := []string{}
-	values := []interface{}{}
-	for i, member := range members {
-		placeholder := fmt.Sprintf(
-			"($%d, $%d, $%d, $%d, $%d)",
-			i*5+1, i*5+2, i*5+3, i*5+4, i*5+5,
+	for _, member := range members {
+		metadataBytes, err := json.Marshal(member.Metadata)
+		if err != nil {
+			return err
+		}
+
+		pairCountsBytes, err := json.Marshal(member.PairCounts)
+		if err != nil {
+			return err
+		}
+
+		columns := "(organization, email, name, metadata, pair_counts)"
+		placeholders := "($1, $2, $3, $4, $5)"
+		_, err = db.Exec(
+			fmt.Sprintf(
+				"INSERT INTO members %s VALUES %s",
+				columns,
+				placeholders,
+			),
+			member.Organization,
+			member.Email,
+			member.Name,
+			server.JSONB(metadataBytes),
+			server.JSONB(pairCountsBytes),
 		)
-		placeholders = append(placeholders, placeholder)
 
-		values = append(values, member.Organization)
-		values = append(values, member.Id)
-		values = append(values, member.Name)
-
-		bytes, err := json.Marshal(member.Metadata)
-		if err != nil {
+		if err != nil && !strings.Contains(err.Error(), DuplicateKeyErr) {
 			return err
 		}
-		values = append(values, server.JSONB(bytes))
-
-		bytes, err = json.Marshal(member.PairCounts)
-		if err != nil {
-			return err
-		}
-		values = append(values, server.JSONB(bytes))
-	}
-
-	query := fmt.Sprintf(
-		"INSERT INTO members (organization, id, name, metadata, pair_counts) VALUES %s",
-		strings.Join(placeholders, ", "),
-	)
-
-	_, err = db.Exec(query, values...)
-	if err != nil {
-		return err
 	}
 
 	return nil
 }
 
+func readCSV_TEST(fileName string) [][]string {
+	f, err := os.Open(fileName)
+	if err != nil {
+		fmt.Println(err)
+		return [][]string{}
+	}
+
+	rawStudents := [][]string{
+		[]string{},
+		[]string{},
+		[]string{},
+		[]string{},
+	}
+
+	reader := csv.NewReader(bufio.NewReader(f))
+	for {
+		line, error := reader.Read()
+		if error == io.EOF {
+			break
+		} else if error != nil {
+			log.Fatal(error)
+		}
+		year, err := strconv.Atoi(line[3])
+		if err != nil {
+			continue
+		}
+		rawStudents[3-(year-2019)] = append(
+			rawStudents[3-(year-2019)],
+			fmt.Sprintf("%s %d", line[0], year),
+		)
+	}
+
+	return rawStudents
+}

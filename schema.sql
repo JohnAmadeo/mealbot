@@ -11,10 +11,10 @@ CREATE TABLE organizations (
 
 CREATE TABLE members (
     organization VARCHAR REFERENCES organizations(name),
-    id VARCHAR PRIMARY KEY,
+    email VARCHAR PRIMARY KEY,
     name VARCHAR UNIQUE NOT NULL CHECK(length(name) > 0),
     metadata JSONB,
-    history JSONB NOT NULL
+    pair_counts JSONB NOT NULL
 );
 
 CREATE TABLE pairs (

@@ -5,9 +5,9 @@ import (
 )
 
 type Organization struct {
-	Name               string
-	Admin              string
-	CrossMatchCriteria string
+	Name            string
+	Admin           string
+	CrossMatchTrait string
 }
 
 func createOrganization(name string, admin string) error {
@@ -29,7 +29,7 @@ func createOrganization(name string, admin string) error {
 	return nil
 }
 
-func getCrossMatchCriteria(orgname string) (string, error) {
+func getCrossMatchTrait(orgname string) (string, error) {
 	db, err := server.CreateDBConnection(LocalDBConnection)
 	defer db.Close()
 	if err != nil {
@@ -37,27 +37,27 @@ func getCrossMatchCriteria(orgname string) (string, error) {
 	}
 
 	rows, err := db.Query(
-		"SELECT cross_match_criteria FROM organizations WHERE name = $1",
+		"SELECT cross_match_trait FROM organizations WHERE name = $1",
 		orgname,
 	)
 	if err != nil {
 		return "", err
 	}
 
-	var crossMatchCriteria string
+	var crossMatchTrait string
 	for rows.Next() {
-		err := rows.Scan(&crossMatchCriteria)
+		err := rows.Scan(&crossMatchTrait)
 		if err != nil {
 			return "", err
 		}
 		break
 	}
 
-	return crossMatchCriteria, nil
+	return crossMatchTrait, nil
 
 }
 
-func setCrossMatchCriteria(orgname string, crossMatchCriteria string) error {
+func setCrossMatchTrait(orgname string, crossMatchTrait string) error {
 	db, err := server.CreateDBConnection(LocalDBConnection)
 	defer db.Close()
 	if err != nil {
@@ -65,8 +65,8 @@ func setCrossMatchCriteria(orgname string, crossMatchCriteria string) error {
 	}
 
 	_, err = db.Exec(
-		"UPDATE organizations SET cross_match_criteria = $1 WHERE name = $2",
-		crossMatchCriteria,
+		"UPDATE organizations SET cross_match_trait = $1 WHERE name = $2",
+		crossMatchTrait,
 		orgname,
 	)
 	if err != nil {

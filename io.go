@@ -10,11 +10,6 @@ import (
 	"strconv"
 )
 
-/*
-- Read all members of orgs
-- Check what cross-match criteria is
-- Create Student struct for each member
-*/
 func readRawCSV(fileName string) [][]string {
 	f, err := os.Open(fileName)
 	if err != nil {

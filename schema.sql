@@ -7,7 +7,7 @@ CREATE TABLE organizations (
     name VARCHAR PRIMARY KEY,
     admin VARCHAR UNIQUE NOT NULL CHECK(length(admin) > 0),
     -- TODO: rename to cross_match_trait
-    cross_match_criteria VARCHAR
+    cross_match_trait VARCHAR
 );
 
 CREATE TABLE members (

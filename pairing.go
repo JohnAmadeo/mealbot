@@ -382,7 +382,7 @@ func selectRandomPartner(partners []Partner) Partner {
 }
 
 func getStudentsFromDB(orgname string) (StudentMap, error) {
-	crossMatchCriteria, err := getCrossMatchCriteria(orgname)
+	crossMatchTrait, err := getCrossMatchTrait(orgname)
 	if err != nil {
 		return StudentMap{}, err
 	}
@@ -442,7 +442,7 @@ func getStudentsFromDB(orgname string) (StudentMap, error) {
 
 		students[email] = Student{
 			Id:         email,
-			Trait:      metadata[crossMatchCriteria],
+			Trait:      metadata[crossMatchTrait],
 			PartnerIds: []string{},
 			BackupIds:  []string{},
 			PairCounts: pairCounts,

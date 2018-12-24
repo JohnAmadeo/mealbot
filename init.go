@@ -50,11 +50,10 @@ func initStudents(rawStudents [][]string) StudentMap {
 			}
 
 			students[studentId] = Student{
-				Id:          studentId,
-				Year:        year,
-				PartnerIds:  partnerIds,
-				YearmateIds: yearmateIds,
-				PairCounts:  pairCounts,
+				Id:         studentId,
+				PartnerIds: partnerIds,
+				BackupIds:  yearmateIds,
+				PairCounts: pairCounts,
 			}
 		}
 	}

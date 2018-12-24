@@ -73,7 +73,7 @@ func MembersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = createMembersFromCSV(filename)
+	err = createMembersFromCSV("PLACEHOLDER ORGNAME", filename)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(server.ErrToBytes(err))
@@ -94,7 +94,7 @@ func isValidFormatCSV(headers []string) bool {
 	return false
 }
 
-func createMembersFromCSV(filename string) error {
+func createMembersFromCSV(orgname string, filename string) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		return err
@@ -138,7 +138,7 @@ func createMembersFromCSV(filename string) error {
 		}
 
 		members = append(members, Member{
-			Organization: "test", // Need to grab from HTTP request
+			Organization: orgname, // Need to grab from HTTP request
 			Email:        email,
 			Name:         name,
 			Metadata:     metadata,

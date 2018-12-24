@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"sort"
 	"strings"
 	"time"
+
+	"github.com/johnamadeo/server"
 )
 
 const (
-	Border    = "------------------------"
 	MaxTries  = 5
 	NumRounds = 6
 )
@@ -154,11 +154,11 @@ func (r Round) String() string {
 }
 
 type Student struct {
-	Id          string
-	Year        int
-	PartnerIds  []string
-	YearmateIds []string
-	PairCounts  map[string]int
+	Id         string
+	Trait      string
+	PartnerIds []string // list of ideal partners
+	BackupIds  []string // list of backups
+	PairCounts map[string]int
 }
 
 type StudentMap map[string]Student
@@ -201,6 +201,19 @@ func (sm StudentMap) String() string {
 	str := ""
 	for studentId, _ := range sm {
 		str += fmt.Sprintf("%s\n", studentId)
+
+		str += "Partners:\n"
+		for _, partnerId := range sm[studentId].PartnerIds {
+			str += fmt.Sprintf("%s ", partnerId)
+		}
+		str += "\n"
+
+		str += "Backups:\n"
+		for _, backupId := range sm[studentId].BackupIds {
+			str += fmt.Sprintf("%s ", backupId)
+		}
+		str += "\n"
+
 		for partnerId, count := range sm[studentId].PairCounts {
 			str += fmt.Sprintf("\t%-30s : %d\n", partnerId, count)
 		}
@@ -223,17 +236,90 @@ func (sm StudentMap) Repeats() (map[Pair]bool, int) {
 
 type Partner struct {
 	Id        string
-	MealCount int
+	PairCount int
 }
 
 type Partners []Partner
 
 func (p Partners) Len() int           { return len(p) }
-func (p Partners) Less(i, j int) bool { return p[i].MealCount < p[j].MealCount }
+func (p Partners) Less(i, j int) bool { return p[i].PairCount < p[j].PairCount }
 func (p Partners) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
-func sortPartnersByMealCount(partners *[]Partner) {
-	sort.Sort(Partners(*partners))
+func runPairingRound(orgname string, roundNum int) error {
+	students, err := getStudentsFromDB(orgname)
+	if err != nil {
+		return err
+	}
+
+	studentIds := []string{}
+	for id, _ := range students {
+		studentIds = append(studentIds, id)
+	}
+
+	tries := 0
+	var round Round
+	// retry until a) a round w/o repeats is found, or b) MaxTries is reached
+	for {
+		studentBytes, _ := json.Marshal(students)
+		var tempStudents StudentMap
+		json.Unmarshal(studentBytes, &tempStudents)
+
+		round = NewRound(roundNum)
+		numRepeats := 0
+
+		// hold out odd student out and add it back in at the end of round
+		extraStudentId := ""
+		if len(tempStudents)%2 == 1 {
+			extraStudentId = studentIds[rand.Intn(len(studentIds))]
+		}
+
+		for _, studentId := range studentIds {
+			if round.IsPaired(studentId) || studentId == extraStudentId {
+				continue
+			}
+
+			partners := []Partner{}
+			student := tempStudents[studentId]
+
+			findUnpairedPartners(&partners, student, round, extraStudentId)
+			if len(partners) == 0 {
+				findBackupPartners(&partners, student, round, extraStudentId)
+			}
+			findLeastPairedPartners(&partners, round)
+
+			partnerId := selectRandomPartner(partners).Id
+
+			round.AddPair(studentId, partnerId)
+			numRepeats += tempStudents.AddPair(studentId, partnerId)
+		}
+
+		if extraStudentId != "" {
+			pair, _ := round.GetPairForExtraStudent(
+				tempStudents[extraStudentId],
+			)
+			round.AddExtraStudentToPair(pair, extraStudentId)
+			numRepeats += tempStudents.AddExtraStudentToPair(
+				pair,
+				extraStudentId,
+			)
+		}
+
+		tries += 1
+
+		if numRepeats == 0 || tries == MaxTries {
+			students = tempStudents
+			fmt.Println(round)
+			fmt.Printf("%d repeats\n", numRepeats)
+			break
+		}
+	}
+
+	err = saveRoundInDB(round, students, orgname)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func findUnpairedPartners(
@@ -249,18 +335,18 @@ func findUnpairedPartners(
 
 		*partners = append(*partners, Partner{
 			Id:        partnerId,
-			MealCount: student.PairCounts[partnerId],
+			PairCount: student.PairCounts[partnerId],
 		})
 	}
 }
 
-func findSameYearPartners(
+func findBackupPartners(
 	partners *[]Partner,
 	student Student,
 	round Round,
 	extraStudentId string,
 ) {
-	for _, partnerId := range student.YearmateIds {
+	for _, partnerId := range student.BackupIds {
 		if student.Id == partnerId ||
 			round.IsPaired(partnerId) ||
 			partnerId == extraStudentId {
@@ -269,22 +355,22 @@ func findSameYearPartners(
 
 		*partners = append(*partners, Partner{
 			Id:        partnerId,
-			MealCount: student.PairCounts[partnerId],
+			PairCount: student.PairCounts[partnerId],
 		})
 	}
 	rand.Shuffle(len(*partners), Partners(*partners).Swap)
 }
 
 func findLeastPairedPartners(partners *[]Partner, round Round) {
-	minMeals := round.Number + 1
+	minPairs := round.Number + 1
 	for _, partner := range *partners {
-		if partner.MealCount < minMeals {
-			minMeals = partner.MealCount
+		if partner.PairCount < minPairs {
+			minPairs = partner.PairCount
 		}
 	}
 	leastPairedPartners := []Partner{}
 	for _, partner := range *partners {
-		if partner.MealCount == minMeals {
+		if partner.PairCount == minPairs {
 			leastPairedPartners = append(leastPairedPartners, partner)
 		}
 	}
@@ -295,7 +381,136 @@ func selectRandomPartner(partners []Partner) Partner {
 	return partners[rand.Intn(len(partners))]
 }
 
-func main() {
+func getStudentsFromDB(orgname string) (StudentMap, error) {
+	crossMatchCriteria, err := getCrossMatchCriteria(orgname)
+	if err != nil {
+		return StudentMap{}, err
+	}
+
+	db, err := server.CreateDBConnection(LocalDBConnection)
+	defer db.Close()
+	if err != nil {
+		return StudentMap{}, err
+	}
+
+	rows, err := db.Query(
+		"SELECT * FROM members WHERE organization = $1",
+		orgname,
+	)
+	if err != nil {
+		return StudentMap{}, err
+	}
+	defer rows.Close()
+
+	students := StudentMap{}
+	for rows.Next() {
+		var organization, email, name string
+		var metadataJson, pairCountsJson server.JSONB
+
+		err := rows.Scan(
+			&organization,
+			&email,
+			&name,
+			&metadataJson,
+			&pairCountsJson,
+		)
+		if err != nil {
+			return StudentMap{}, err
+		}
+
+		bytes, err := metadataJson.MarshalJSON()
+		if err != nil {
+			return StudentMap{}, err
+		}
+
+		var metadata map[string]string
+		err = json.Unmarshal(bytes, &metadata)
+		if err != nil {
+			return StudentMap{}, err
+		}
+
+		bytes, err = pairCountsJson.MarshalJSON()
+		if err != nil {
+			return StudentMap{}, err
+		}
+
+		var pairCounts map[string]int
+		err = json.Unmarshal(bytes, &pairCounts)
+		if err != nil {
+			return StudentMap{}, err
+		}
+
+		students[email] = Student{
+			Id:         email,
+			Trait:      metadata[crossMatchCriteria],
+			PartnerIds: []string{},
+			BackupIds:  []string{},
+			PairCounts: pairCounts,
+		}
+	}
+
+	for i, student := range students {
+		partnerIds := []string{}
+		backupIds := []string{}
+		for j, _ := range students {
+			if i == j {
+				continue
+			}
+
+			if students[i].Trait != students[j].Trait {
+				partnerIds = append(partnerIds, students[j].Id)
+			} else {
+				backupIds = append(backupIds, students[j].Id)
+			}
+		}
+		student.PartnerIds = partnerIds
+		student.BackupIds = backupIds
+		students[i] = student
+	}
+
+	return students, nil
+}
+
+func saveRoundInDB(round Round, students StudentMap, orgname string) error {
+	db, err := server.CreateDBConnection(LocalDBConnection)
+	defer db.Close()
+	if err != nil {
+		return err
+	}
+
+	for pair, _ := range round.Pairs {
+		columns := "(organization, id1, id2, round)"
+		placeholder := "($1, $2, $3, $4)"
+
+		db.Exec(
+			fmt.Sprintf("INSERT INTO pairs %s VALUES %s", columns, placeholder),
+			orgname,
+			pair.Id1,
+			pair.Id2,
+			round.Number,
+		)
+	}
+
+	for _, student := range students {
+		bytes, err := json.Marshal(student.PairCounts)
+		if err != nil {
+			return err
+		}
+
+		_, err = db.Exec(
+			"UPDATE members SET metadata = $1 WHERE email = $2",
+			server.JSONB(bytes),
+			student.Id,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func testRound() {
 	// TODO: Need to dynamically decide NumRounds & trie
 
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -339,12 +554,7 @@ func main() {
 
 				findUnpairedPartners(&partners, student, round, extraStudentId)
 				if len(partners) == 0 {
-					findSameYearPartners(
-						&partners,
-						student,
-						round,
-						extraStudentId,
-					)
+					findBackupPartners(&partners, student, round, extraStudentId)
 				}
 				findLeastPairedPartners(&partners, round)
 

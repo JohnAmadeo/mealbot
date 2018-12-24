@@ -4,16 +4,28 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"math/rand"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/emersion/go-sasl"
+	"github.com/emersion/go-smtp"
 	"github.com/johnamadeo/server"
 )
 
 const (
 	MaxTries  = 5
 	NumRounds = 6
+
+	MealbotEmailAddress = "ysc.meal.bot@gmail.com"
+	SMTPAddress         = "smtp.gmail.com:587"
+
+	EmailIntro   = "Your Mealbot group this week is:"
+	EmailFooter  = "Sent by your friendly neighborhood Mealbot! Learn more about me at https://mealbot.herokuapp.com"
+	EmailSubject = "Your weekly Mealbot group"
 )
 
 type Pair struct {
@@ -155,6 +167,7 @@ func (r Round) String() string {
 
 type Student struct {
 	Id         string
+	Name       string
 	Trait      string
 	PartnerIds []string // list of ideal partners
 	BackupIds  []string // list of backups
@@ -314,6 +327,21 @@ func runPairingRound(orgname string, roundNum int) error {
 		}
 	}
 
+	for pair, _ := range round.Pairs {
+		toEmails := []string{pair.Id1, pair.Id2}
+		toNames := []string{students[pair.Id1].Name, students[pair.Id2].Name}
+
+		if pair.ExtraId != "" {
+			toEmails = append(toEmails, pair.ExtraId)
+			toNames = append(toNames, students[pair.ExtraId].Name)
+		}
+
+		err := sendEmails(toEmails, toNames)
+		if err != nil {
+			return err
+		}
+	}
+
 	err = saveRoundInDB(round, students, orgname)
 	if err != nil {
 		return err
@@ -442,6 +470,7 @@ func getStudentsFromDB(orgname string) (StudentMap, error) {
 
 		students[email] = Student{
 			Id:         email,
+			Name:       name,
 			Trait:      metadata[crossMatchTrait],
 			PartnerIds: []string{},
 			BackupIds:  []string{},
@@ -498,7 +527,7 @@ func saveRoundInDB(round Round, students StudentMap, orgname string) error {
 		}
 
 		_, err = db.Exec(
-			"UPDATE members SET metadata = $1 WHERE email = $2",
+			"UPDATE members SET pair_counts = $1 WHERE email = $2",
 			server.JSONB(bytes),
 			student.Id,
 		)
@@ -508,6 +537,47 @@ func saveRoundInDB(round Round, students StudentMap, orgname string) error {
 	}
 
 	return nil
+}
+
+func sendEmails(toEmails []string, toNames []string) error {
+	password, ok := os.LookupEnv("MEALBOT_EMAIL_PASSWORD")
+	if !ok {
+		return errors.New("Password for Mealbot email needs to be set as the environment variable MEALBOT_EMAIL_PASSWORD")
+	}
+
+	auth := sasl.NewPlainClient("", MealbotEmailAddress, password)
+	msg := genRFC822EmailReader(
+		toEmails,
+		toNames,
+		EmailSubject,
+		EmailIntro,
+		EmailFooter,
+	)
+
+	err := smtp.SendMail(SMTPAddress, auth, MealbotEmailAddress, toEmails, msg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return nil
+}
+
+func genRFC822EmailReader(
+	toEmails []string,
+	toNames []string,
+	subject string,
+	intro string,
+	footer string,
+) io.Reader {
+	toStr := fmt.Sprintf("To: %s \r\n", strings.Join(toEmails, ", "))
+	subjectStr := fmt.Sprintf("Subject: %s \r\n", subject)
+	introStr := fmt.Sprintf("%s \r\n", intro)
+	bodyStr := strings.Join(toNames, " \r\n")
+	footerStr := fmt.Sprintf("\r\n\r\n %s \r\n", footer)
+
+	return strings.NewReader(
+		toStr + subjectStr + "\r\n" + introStr + bodyStr + footerStr,
+	)
 }
 
 func testRound() {

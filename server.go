@@ -35,4 +35,16 @@ func main() {
 		},
 	}
 
+	serveMux := http.NewServeMux()
+	// serveMux.Handle("/members", GetAuthHandler(MembersHandler))
+	serveMux.Handle("/orgs", mw.Apply(GetOrganizationsHandler))
+	serveMux.Handle("/org", mw.Apply(OrgHandler))
+	serveMux.Handle("/testcsv", http.FileServer(http.Dir("./static")))
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Fatal(http.ListenAndServe(":"+port, serveMux))
 }

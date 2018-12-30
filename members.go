@@ -33,6 +33,8 @@ type Member struct {
 	PairCounts   map[string]int
 }
 
+type MemberResponse map[string]string
+
 func MembersHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -203,6 +205,51 @@ func saveMembersInDB(members []Member) error {
 	}
 
 	return nil
+}
+
+func getMembersFromDB(orgname string) ([]MemberResponse, error) {
+	db, err := server.CreateDBConnection(LocalDBConnection)
+	defer db.Close()
+	if err != nil {
+		return []MemberResponse{}, err
+	}
+
+	members := []MemberResponse{}
+
+	rows, err := db.Query(
+		"SELECT name, email, metadata FROM members WHERE organization = $1 ORDER BY name",
+		orgname,
+	)
+	if err != nil {
+		return members, err
+	}
+
+	for rows.Next() {
+		var name, email string
+		var metadataJson server.JSONB
+		err := rows.Scan(&name, &email, &metadataJson)
+		if err != nil {
+			return members, err
+		}
+
+		bytes, err := metadataJson.MarshalJSON()
+		if err != nil {
+			return members, err
+		}
+
+		var member map[string]string
+		err = json.Unmarshal(bytes, &member)
+		if err != nil {
+			return members, err
+		}
+
+		member["name"] = name
+		member["email"] = email
+
+		members = append(members, member)
+	}
+
+	return members, nil
 }
 
 func readCSV_TEST(fileName string) [][]string {

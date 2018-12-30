@@ -16,6 +16,17 @@ const (
 	JSONWebKeySet      = "https://intouch-android.auth0.com/.well-known/jwks.json"
 )
 
+type CustomJWTMiddleware struct {
+	ValidationKeyGetter jwt.Keyfunc
+	SigningMethod       jwt.SigningMethod
+}
+
+func (mw *CustomJWTMiddleware) Handler(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h.ServeHTTP(w, r)
+	})
+}
+
 type Jwks struct {
 	Keys []JSONWebKeys `json:"keys"`
 }
@@ -49,7 +60,7 @@ func GetAuthHandler(handler http.HandlerFunc) http.Handler {
 
 			cert, err := getPEMCertificate(token)
 			if err != nil {
-				panic(err.Error())
+				return token, errors.New("PEM Certificate failed")
 			}
 
 			result, err := jwt.ParseRSAPublicKeyFromPEM([]byte(cert))
@@ -64,6 +75,9 @@ func GetAuthHandler(handler http.HandlerFunc) http.Handler {
 		// If the signing method is not constant the ValidationKeyGetter callback can be used to implement additional checks
 		// Important to avoid security issues described here: https://auth0.com/blog/2015/03/31/critical-vulnerabilities-in-json-web-token-libraries/
 		SigningMethod: jwt.SigningMethodRS256,
+		// CredentialsOptional: true,
+		// EnableAuthOnOptions: true,
+		Debug: true,
 	})
 
 	return jwtMiddleware.Handler(handler)
@@ -71,6 +85,42 @@ func GetAuthHandler(handler http.HandlerFunc) http.Handler {
 
 func GetFakeAuthHandler(handler http.HandlerFunc) http.Handler {
 	return handler
+}
+
+func GetCustomAuthHandler(handler http.HandlerFunc) http.Handler {
+	mw := &CustomJWTMiddleware{
+		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
+			checkAud := verifyAudience(token.Claims, Audience)
+
+			if checkAud != nil {
+				return token, errors.New("Invalid audience")
+			}
+
+			checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer(Issuer, true)
+			if !checkIss {
+				return token, errors.New("Invalid issuer")
+			}
+
+			cert, err := getPEMCertificate(token)
+			if err != nil {
+				return token, errors.New("PEM Certificate failed")
+			}
+
+			result, err := jwt.ParseRSAPublicKeyFromPEM([]byte(cert))
+			if err != nil {
+				return token, errors.New("Failed to parse RSA public key from PEM certificate")
+			}
+
+			return result, nil
+		},
+
+		// When set, the middleware verifies that tokens are signed with the specific signing algorithm
+		// If the signing method is not constant the ValidationKeyGetter callback can be used to implement additional checks
+		// Important to avoid security issues described here: https://auth0.com/blog/2015/03/31/critical-vulnerabilities-in-json-web-token-libraries/
+		SigningMethod: jwt.SigningMethodRS256,
+	}
+
+	return mw.Handler(handler)
 }
 
 // https://support.quovadisglobal.com/kb/a37/what-is-pem-format.aspx

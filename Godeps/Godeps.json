@@ -13,13 +13,20 @@
 			"Rev": "3af4c746e1c248ee8491a3e0c6f7a9cd831e95f8"
 		},
 		{
-			"ImportPath": "github.com/google/uuid",
-			"Comment": "1.0.0-8-g9b3b1e0",
-			"Rev": "9b3b1e0f5f99ae461456d768e7d301a7acdaa2d8"
+			"ImportPath": "github.com/emersion/go-sasl",
+			"Rev": "7e096a0a6197b89989e8cc31016daa67c8c62051"
+		},
+		{
+			"ImportPath": "github.com/emersion/go-smtp",
+			"Rev": "7162b2ca3bcbc23985fd44e0b0a1fd80185119a6"
+		},
+		{
+			"ImportPath": "github.com/johnamadeo/intouchgo/utils",
+			"Rev": "ca1120d4a9f49f646053f8bfe9c3d14a27075f80"
 		},
 		{
 			"ImportPath": "github.com/johnamadeo/server",
-			"Rev": "3cd1bc6d2320d235ba681a925e015c0589d63791"
+			"Rev": "1ed609498d9405c7fa5c1419da63016fd82cb266"
 		},
 		{
 			"ImportPath": "github.com/lib/pq",

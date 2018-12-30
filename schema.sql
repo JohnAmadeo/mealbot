@@ -5,8 +5,7 @@ DROP TABLE organizations;
 
 CREATE TABLE organizations (
     name VARCHAR PRIMARY KEY,
-    admin VARCHAR UNIQUE NOT NULL CHECK(length(admin) > 0),
-    -- TODO: rename to cross_match_trait
+    admin VARCHAR NOT NULL CHECK(length(admin) > 0),
     cross_match_trait VARCHAR
 );
 

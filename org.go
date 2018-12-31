@@ -1,12 +1,12 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 
-	"github.com/johnamadeo/intouchgo/utils"
 	"github.com/johnamadeo/server"
 )
 
@@ -20,10 +20,14 @@ type CreateOrganizationRequestBody struct {
 	Organization string `json:"org"`
 }
 
+type SetCrossMatchTraitRequestBody struct {
+	Trait string `json:"trait"`
+}
+
 type GetOrganizationDetailResponse struct {
-	Members           []MemberResponse `json:"members"`
-	Traits            []string         `json:"traits"`
-	CrossMatchTraitId int              `json:"cross"`
+	Members         []MemberResponse `json:"members"`
+	Traits          []string         `json:"traits"`
+	CrossMatchTrait string           `json:"crossMatchTrait"`
 }
 
 func GetOrganizationsHandler(w http.ResponseWriter, r *http.Request) {
@@ -109,25 +113,22 @@ func GetOrganizationDetailsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	crossMatchTrait, err := getCrossMatchTrait(orgname)
-	crossMatchTraitId := -1
-	for i, trait := range traits {
-		if trait == crossMatchTrait {
-			crossMatchTraitId = i
-			break
-		}
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(server.ErrToBytes(err))
+		return
 	}
 
 	resp := GetOrganizationDetailResponse{
 		Members: members,
 		Traits:  traits,
 	}
-	if crossMatchTraitId != -1 {
-		resp.CrossMatchTraitId = crossMatchTraitId
+	if crossMatchTrait != "" {
+		resp.CrossMatchTrait = crossMatchTrait
 	}
 
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		utils.PrintErr(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(server.ErrToBytes(err))
 		return
@@ -140,14 +141,14 @@ func GetOrganizationDetailsHandler(w http.ResponseWriter, r *http.Request) {
 func CreateOrganizationHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write(utils.MessageToBytes("Only POST requests are allowed at this route"))
+		w.Write(server.StrToBytes("Only POST requests are allowed at this route"))
 		return
 	}
 
 	bytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write(utils.MessageToBytes("Malformed body."))
+		w.Write(server.StrToBytes("Malformed body."))
 		return
 	}
 	defer r.Body.Close()
@@ -156,7 +157,7 @@ func CreateOrganizationHandler(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal(bytes, &body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write(utils.MessageToBytes("Request body must be a letter"))
+		w.Write(server.StrToBytes("Request body is malformed"))
 		return
 	}
 
@@ -179,6 +180,47 @@ func CreateOrganizationHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 	w.Write(server.StrToBytes("Successfully created new organization"))
+}
+
+func CrossMatchTraitHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.Write(server.StrToBytes("Only POST requests are allowed at this route"))
+		return
+	}
+
+	orgname, err := getQueryParam(r, "org")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(server.ErrToBytes(err))
+		return
+	}
+
+	bytes, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(server.StrToBytes("Malformed body."))
+		return
+	}
+	defer r.Body.Close()
+
+	var body SetCrossMatchTraitRequestBody
+	err = json.Unmarshal(bytes, &body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(server.StrToBytes("Request body is malformed"))
+		return
+	}
+
+	err = setCrossMatchTrait(orgname, body.Trait)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(server.ErrToBytes(err))
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	w.Write(server.StrToBytes("Successfully set the cross match trait"))
 }
 
 func getOrganizations(admin string) ([]string, error) {
@@ -245,17 +287,21 @@ func getCrossMatchTrait(orgname string) (string, error) {
 		return "", err
 	}
 
-	var crossMatchTrait string
+	var crossMatchTraitSql sql.NullString
 	for rows.Next() {
-		err := rows.Scan(&crossMatchTrait)
+		err := rows.Scan(&crossMatchTraitSql)
 		if err != nil {
 			return "", err
 		}
 		break
 	}
 
-	return crossMatchTrait, nil
+	crossMatchTrait := ""
+	if crossMatchTraitSql.Valid {
+		crossMatchTrait = crossMatchTraitSql.String
+	}
 
+	return crossMatchTrait, nil
 }
 
 func setCrossMatchTrait(orgname string, crossMatchTrait string) error {

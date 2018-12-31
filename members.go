@@ -34,6 +34,10 @@ type Member struct {
 }
 
 type MemberResponse map[string]string
+type CreateMembersResponse struct {
+	Members []MemberResponse `json:"members"`
+	Traits  []string         `json:"traits"`
+}
 
 func MembersHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
@@ -42,7 +46,14 @@ func MembersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := r.ParseMultipartForm(MaxMemory)
+	orgname, err := getQueryParam(r, "org")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(server.ErrToBytes(err))
+		return
+	}
+
+	err = r.ParseMultipartForm(MaxMemory)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write(server.ErrToBytes(err))
@@ -75,7 +86,26 @@ func MembersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = createMembersFromCSV("PLACEHOLDER ORGNAME", filename)
+	members, err := createMembersFromCSV(orgname, filename)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(server.ErrToBytes(err))
+		return
+	}
+
+	var traits []string
+	for trait, _ := range members[0] {
+		if trait != "name" && trait != "email" {
+			traits = append(traits, trait)
+		}
+	}
+
+	resp := CreateMembersResponse{
+		Members: members,
+		Traits:  traits,
+	}
+
+	bytes, err := json.Marshal(resp)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(server.ErrToBytes(err))
@@ -83,7 +113,7 @@ func MembersHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	w.Write(server.StrToBytes("Successfully saved members from CSV"))
+	w.Write(bytes)
 }
 
 func isValidFormatCSV(headers []string) bool {
@@ -96,10 +126,10 @@ func isValidFormatCSV(headers []string) bool {
 	return false
 }
 
-func createMembersFromCSV(orgname string, filename string) error {
+func createMembersFromCSV(orgname string, filename string) ([]MemberResponse, error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		return err
+		return []MemberResponse{}, err
 	}
 
 	reader := csv.NewReader(bufio.NewReader(file))
@@ -112,7 +142,7 @@ func createMembersFromCSV(orgname string, filename string) error {
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return err
+			return []MemberResponse{}, err
 		}
 
 		if len(headers) == 0 {
@@ -122,7 +152,8 @@ func createMembersFromCSV(orgname string, filename string) error {
 				}
 				continue
 			} else {
-				return errors.New("CSV must have a column titled 'name'")
+				err = errors.New("CSV must have a column titled 'name'")
+				return []MemberResponse{}, err
 			}
 		}
 
@@ -159,10 +190,18 @@ func createMembersFromCSV(orgname string, filename string) error {
 
 	err = saveMembersInDB(members)
 	if err != nil {
-		return err
+		return []MemberResponse{}, err
 	}
 
-	return nil
+	var membersJson []MemberResponse
+	for _, member := range members {
+		memberJson := member.Metadata
+		memberJson["name"] = member.Name
+		memberJson["email"] = member.Email
+		membersJson = append(membersJson, memberJson)
+	}
+
+	return membersJson, nil
 }
 
 // TODO: Batch insert

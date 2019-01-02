@@ -21,10 +21,6 @@
 			"Rev": "7162b2ca3bcbc23985fd44e0b0a1fd80185119a6"
 		},
 		{
-			"ImportPath": "github.com/johnamadeo/intouchgo/utils",
-			"Rev": "ca1120d4a9f49f646053f8bfe9c3d14a27075f80"
-		},
-		{
 			"ImportPath": "github.com/johnamadeo/server",
 			"Rev": "1ed609498d9405c7fa5c1419da63016fd82cb266"
 		},

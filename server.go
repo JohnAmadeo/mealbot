@@ -28,37 +28,38 @@ func (mw Middleware) ApplyFake(
 	return http.Handler(http.HandlerFunc(coreHandler))
 }
 
+func runTestSequence() {
+	err := createOrganization("ysc", "johnamadeo.daniswara@yale.edu")
+	if err != nil {
+		fmt.Println(err)
+	}
+	_, err = createMembersFromCSV("ysc", "./csv/ysc.csv")
+	if err != nil {
+		fmt.Println(err)
+	}
+	err = addRound("ysc", "2019-01-02 03:45:00")
+	if err != nil {
+		fmt.Println(err)
+	}
+	err = addRound("ysc", "2019-01-02 04:00:06")
+	if err != nil {
+		fmt.Println(err)
+	}
+	// err = runPairingRound("ysc", 0, true)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+	// err = runPairingRound("ysc", 1, true)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+}
+
 func main() {
 	args := os.Args
 	if len(args) == 2 && args[1] == "pair" {
-		err := createOrganization("ysc", "johnamadeo.daniswara@yale.edu")
-		if err != nil {
-			fmt.Println(err)
-		}
-		_, err = createMembersFromCSV("ysc", "./csv/ysc.csv")
-		if err != nil {
-			fmt.Println(err)
-		}
-		err = addRound("ysc", "1999-01-08 04:05:06")
-		if err != nil {
-			fmt.Println(err)
-		}
-		err = rescheduleRound("ysc", "1999-10-08 04:05:06", 0)
-		if err != nil {
-			fmt.Println(err)
-		}
-		err = addRound("ysc", "2019-01-08 04:05:06")
-		if err != nil {
-			fmt.Println(err)
-		}
-		err = runPairingRound("ysc", 0, true)
-		if err != nil {
-			fmt.Println(err)
-		}
-		err = runPairingRound("ysc", 1, true)
-		if err != nil {
-			fmt.Println(err)
-		}
+		runTestSequence()
+		// runPairingScheduler()
 		return
 	}
 

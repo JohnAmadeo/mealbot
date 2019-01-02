@@ -26,6 +26,7 @@ CREATE TABLE rounds (
     -- as UTC time (& converted into local time if a client library wants to
     -- do so e.g moment.js)
     scheduled_date TIMESTAMP NOT NULL,
+    done BOOLEAN NOT NULL,
     PRIMARY KEY (organization, id)
 );
 

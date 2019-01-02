@@ -541,6 +541,16 @@ func saveRoundInDB(round Round, students StudentMap, orgname string) error {
 		}
 	}
 
+	_, err = db.Exec(
+		"UPDATE rounds SET done = $1 WHERE organization = $2 AND id = $3",
+		true,
+		orgname,
+		round.Number,
+	)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -583,4 +593,36 @@ func genRFC822EmailReader(
 	return strings.NewReader(
 		toStr + subjectStr + "\r\n" + introStr + bodyStr + footerStr,
 	)
+}
+
+func runPairingScheduler() error {
+	db, err := server.CreateDBConnection(LocalDBConnection)
+	defer db.Close()
+	if err != nil {
+		return err
+	}
+
+	rows, err := db.Query(
+		"SELECT organization, id FROM rounds WHERE scheduled_date < now() AND done = false",
+	)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var orgname string
+		var roundNum int
+		err := rows.Scan(&orgname, &roundNum)
+		if err != nil {
+			return err
+		}
+
+		// TODO: SWITCH TEST MODE OFF
+		err = runPairingRound(orgname, roundNum, true)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

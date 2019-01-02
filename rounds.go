@@ -222,10 +222,11 @@ func addRound(orgname string, roundDate string) error {
 	}
 
 	_, err = db.Exec(
-		"INSERT INTO rounds (organization, id, scheduled_date) VALUES ($1, $2, $3)",
+		"INSERT INTO rounds (organization, id, scheduled_date, done) VALUES ($1, $2, $3, $4)",
 		orgname,
 		maxRoundId+1,
 		roundDate,
+		false,
 	)
 	if err != nil {
 		return err

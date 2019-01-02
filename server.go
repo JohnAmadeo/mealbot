@@ -38,8 +38,10 @@ func main() {
 	serveMux := http.NewServeMux()
 	serveMux.Handle("/members", mw.Apply(MembersHandler))
 	serveMux.Handle("/orgs", mw.Apply(GetOrganizationsHandler))
-	serveMux.Handle("/org", mw.Apply(OrgHandler))
+	serveMux.Handle("/org", mw.Apply(CreateOrganizationHandler))
 	serveMux.Handle("/crossmatchtrait", mw.Apply(CrossMatchTraitHandler))
+	serveMux.Handle("/rounds", mw.Apply(GetRoundsHandler))
+	serveMux.Handle("/round", mw.Apply(RoundHandler))
 	serveMux.Handle("/", http.FileServer(http.Dir("./static")))
 
 	port := os.Getenv("PORT")

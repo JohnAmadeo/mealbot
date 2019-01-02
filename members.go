@@ -39,7 +39,77 @@ type CreateMembersResponse struct {
 	Traits  []string         `json:"traits"`
 }
 
+type GetMembersResponse struct {
+	Members         []MemberResponse `json:"members"`
+	Traits          []string         `json:"traits"`
+	CrossMatchTrait string           `json:"crossMatchTrait"`
+}
+
 func MembersHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		CreateMembersHandler(w, r)
+	} else if r.Method == "GET" {
+		GetMembersHandler(w, r)
+	}
+}
+
+func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.Write(server.StrToBytes("Only GET requests are allowed at this route"))
+		return
+	}
+
+	orgname, err := getQueryParam(r, "org")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(server.ErrToBytes(err))
+		return
+	}
+
+	members, err := getMembersFromDB(orgname)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(server.ErrToBytes(err))
+		return
+	}
+
+	traits := []string{}
+	if len(members) > 0 {
+		for trait, _ := range members[0] {
+			if trait != "name" && trait != "email" {
+				traits = append(traits, trait)
+			}
+		}
+	}
+
+	crossMatchTrait, err := getCrossMatchTrait(orgname)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(server.ErrToBytes(err))
+		return
+	}
+
+	resp := GetMembersResponse{
+		Members: members,
+		Traits:  traits,
+	}
+	if crossMatchTrait != "" {
+		resp.CrossMatchTrait = crossMatchTrait
+	}
+
+	bytes, err := json.Marshal(resp)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(server.ErrToBytes(err))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(bytes)
+}
+
+func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		w.Write(server.StrToBytes("Only POST requests are allowed at this route"))

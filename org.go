@@ -24,14 +24,7 @@ type SetCrossMatchTraitRequestBody struct {
 	Trait string `json:"trait"`
 }
 
-type GetOrganizationDetailResponse struct {
-	Members         []MemberResponse `json:"members"`
-	Traits          []string         `json:"traits"`
-	CrossMatchTrait string           `json:"crossMatchTrait"`
-}
-
 func GetOrganizationsHandler(w http.ResponseWriter, r *http.Request) {
-
 	if r.Method != "GET" && r.Method != "" {
 		fmt.Println(r.Method + " Only GET requests are allowed at this route")
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -59,76 +52,6 @@ func GetOrganizationsHandler(w http.ResponseWriter, r *http.Request) {
 	bytes, err := json.Marshal(resp)
 	if err != nil {
 		fmt.Println(err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(server.ErrToBytes(err))
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(bytes)
-}
-
-func OrgHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" && r.Method != "GET" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write(server.StrToBytes("Only POST & GET requests are allowed at this route"))
-		return
-	}
-
-	if r.Method == "POST" {
-		CreateOrganizationHandler(w, r)
-	} else if r.Method == "GET" {
-		GetOrganizationDetailsHandler(w, r)
-	}
-}
-
-func GetOrganizationDetailsHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write(server.StrToBytes("Only GET requests are allowed at this route"))
-		return
-	}
-
-	orgname, err := getQueryParam(r, "org")
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(server.ErrToBytes(err))
-		return
-	}
-
-	members, err := getMembersFromDB(orgname)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(server.ErrToBytes(err))
-		return
-	}
-
-	traits := []string{}
-	if len(members) > 0 {
-		for trait, _ := range members[0] {
-			if trait != "name" && trait != "email" {
-				traits = append(traits, trait)
-			}
-		}
-	}
-
-	crossMatchTrait, err := getCrossMatchTrait(orgname)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(server.ErrToBytes(err))
-		return
-	}
-
-	resp := GetOrganizationDetailResponse{
-		Members: members,
-		Traits:  traits,
-	}
-	if crossMatchTrait != "" {
-		resp.CrossMatchTrait = crossMatchTrait
-	}
-
-	bytes, err := json.Marshal(resp)
-	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(server.ErrToBytes(err))
 		return

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"database/sql"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -359,6 +360,35 @@ func getMembersFromDB(orgname string) ([]MemberResponse, error) {
 	}
 
 	return members, nil
+}
+
+// Helper function used in getPairsFromDB
+func getMemberFromDB(orgname string, email string, db *sql.DB) (Member, error) {
+	memberRows, err := db.Query(
+		"SELECT name FROM members WHERE organization = $1 AND email = $2",
+		orgname,
+		email,
+	)
+	if err != nil {
+		return Member{}, err
+	}
+
+	var member Member
+	for memberRows.Next() {
+		var name string
+		err := memberRows.Scan(&name)
+		if err != nil {
+			return Member{}, err
+		}
+
+		member = Member{
+			Name:  name,
+			Email: email,
+		}
+		break
+	}
+
+	return member, nil
 }
 
 func readCSV_TEST(fileName string) [][]string {

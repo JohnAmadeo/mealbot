@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/emersion/go-sasl"
 	"github.com/emersion/go-smtp"
@@ -258,7 +257,7 @@ func (p Partners) Len() int           { return len(p) }
 func (p Partners) Less(i, j int) bool { return p[i].PairCount < p[j].PairCount }
 func (p Partners) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
-func runPairingRound(orgname string, roundNum int) error {
+func runPairingRound(orgname string, roundNum int, testMode bool) error {
 	students, err := getStudentsFromDB(orgname)
 	if err != nil {
 		return err
@@ -336,9 +335,11 @@ func runPairingRound(orgname string, roundNum int) error {
 			toNames = append(toNames, students[pair.ExtraId].Name)
 		}
 
-		err := sendEmails(toEmails, toNames)
-		if err != nil {
-			return err
+		if !testMode {
+			// err := sendEmails(toEmails, toNames)
+			// if err != nil {
+			// 	return err
+			// }
 		}
 	}
 
@@ -511,13 +512,17 @@ func saveRoundInDB(round Round, students StudentMap, orgname string) error {
 		columns := "(organization, id1, id2, round)"
 		placeholder := "($1, $2, $3, $4)"
 
-		db.Exec(
+		_, err := db.Exec(
 			fmt.Sprintf("INSERT INTO pairs %s VALUES %s", columns, placeholder),
 			orgname,
 			pair.Id1,
 			pair.Id2,
 			round.Number,
 		)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, student := range students {
@@ -578,84 +583,4 @@ func genRFC822EmailReader(
 	return strings.NewReader(
 		toStr + subjectStr + "\r\n" + introStr + bodyStr + footerStr,
 	)
-}
-
-func testRound() {
-	// TODO: Need to dynamically decide NumRounds & trie
-
-	rand.Seed(time.Now().UTC().UnixNano())
-	raw := readRawCSV("test.csv")
-	// raw := [][]string{
-	// 	[]string{"A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "A11"},
-	// 	[]string{"B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10", "B11"},
-	// }
-
-	// raw := [][]string{
-	// 	[]string{"A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10"},
-	// }
-
-	students := initStudents(raw)
-	studentIds := getStudentIds(raw)
-
-	for roundNum := 0; roundNum < NumRounds; roundNum++ {
-		tries := 0
-		// retry until a) a round w/o repeats is found, or b) MaxTries is reached
-		for {
-			studentBytes, _ := json.Marshal(students)
-			var tempStudents StudentMap
-			json.Unmarshal(studentBytes, &tempStudents)
-
-			round := NewRound(roundNum)
-			numRepeats := 0
-
-			// hold out odd student out and add it back in at the end of round
-			extraStudentId := ""
-			if len(tempStudents)%2 == 1 {
-				extraStudentId = studentIds[rand.Intn(len(studentIds))]
-			}
-
-			for _, studentId := range studentIds {
-				if round.IsPaired(studentId) || studentId == extraStudentId {
-					continue
-				}
-
-				partners := []Partner{}
-				student := tempStudents[studentId]
-
-				findUnpairedPartners(&partners, student, round, extraStudentId)
-				if len(partners) == 0 {
-					findBackupPartners(&partners, student, round, extraStudentId)
-				}
-				findLeastPairedPartners(&partners, round)
-
-				partnerId := selectRandomPartner(partners).Id
-
-				round.AddPair(studentId, partnerId)
-				numRepeats += tempStudents.AddPair(studentId, partnerId)
-			}
-
-			if extraStudentId != "" {
-				pair, _ := round.GetPairForExtraStudent(
-					tempStudents[extraStudentId],
-				)
-				round.AddExtraStudentToPair(pair, extraStudentId)
-				numRepeats += tempStudents.AddExtraStudentToPair(
-					pair,
-					extraStudentId,
-				)
-			}
-
-			tries += 1
-
-			if numRepeats == 0 || tries == MaxTries {
-				students = tempStudents
-				fmt.Println(round)
-				fmt.Printf("%d repeats\n", numRepeats)
-				break
-			}
-		}
-	}
-
-	_, repeats := students.Repeats()
-	fmt.Printf("Total: %d repeats\n", repeats)
 }

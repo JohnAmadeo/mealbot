@@ -2,11 +2,9 @@ package main
 
 import (
 	"fmt"
-	"go/build"
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 )
 
 type Middleware struct {
@@ -37,31 +35,31 @@ func main() {
 		if err != nil {
 			fmt.Println(err)
 		}
-		fmt.Println(filepath.Join(build.Default.GOPATH, CSVPath, "ysc.csv"))
-		_, err = createMembersFromCSV("ysc", filepath.Join(build.Default.GOPATH, CSVPath, "ysc.csv"))
+		// _, err = createMembersFromCSV("ysc", filepath.Join(build.Default.GOPATH, CSVPath, "ysc.csv"))
+		_, err = createMembersFromCSV("ysc", "./csv/ysc.csv")
 		if err != nil {
 			fmt.Println(err)
 		}
-		err = addRound("ysc", "1999-01-08 04:05:06")
-		if err != nil {
-			fmt.Println(err)
-		}
-		err = rescheduleRound("ysc", "1999-10-08 04:05:06", 0)
-		if err != nil {
-			fmt.Println(err)
-		}
-		err = addRound("ysc", "2019-01-08 04:05:06")
-		if err != nil {
-			fmt.Println(err)
-		}
-		err = runPairingRound("ysc", 0, true)
-		if err != nil {
-			fmt.Println(err)
-		}
-		err = runPairingRound("ysc", 1, true)
-		if err != nil {
-			fmt.Println(err)
-		}
+		// err = addRound("ysc", "1999-01-08 04:05:06")
+		// if err != nil {
+		// 	fmt.Println(err)
+		// }
+		// err = rescheduleRound("ysc", "1999-10-08 04:05:06", 0)
+		// if err != nil {
+		// 	fmt.Println(err)
+		// }
+		// err = addRound("ysc", "2019-01-08 04:05:06")
+		// if err != nil {
+		// 	fmt.Println(err)
+		// }
+		// err = runPairingRound("ysc", 0, true)
+		// if err != nil {
+		// 	fmt.Println(err)
+		// }
+		// err = runPairingRound("ysc", 1, true)
+		// if err != nil {
+		// 	fmt.Println(err)
+		// }
 		return
 	}
 

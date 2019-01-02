@@ -182,7 +182,6 @@ func createOrganization(name string, admin string) error {
 		return err
 	}
 
-	fmt.Println("Inserting")
 	_, err = db.Exec(
 		"INSERT INTO organizations (name, admin) VALUES ($1, $2)",
 		name,

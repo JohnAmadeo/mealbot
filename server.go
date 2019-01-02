@@ -38,7 +38,7 @@ func main() {
 			fmt.Println(err)
 		}
 		fmt.Println(filepath.Join(build.Default.GOPATH, CSVPath, "ysc.csv"))
-		_, err := createMembersFromCSV("ysc", filepath.Join(build.Default.GOPATH, CSVPath, "ysc.csv"))
+		_, err = createMembersFromCSV("ysc", filepath.Join(build.Default.GOPATH, CSVPath, "ysc.csv"))
 		if err != nil {
 			fmt.Println(err)
 		}

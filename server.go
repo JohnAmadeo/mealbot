@@ -37,11 +37,11 @@ func runTestSequence() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	err = addRound("ysc", "2019-01-02 03:45:00")
+	err = addRound("ysc", "2019-01-02 15:55:00")
 	if err != nil {
 		fmt.Println(err)
 	}
-	err = addRound("ysc", "2019-01-02 04:00:06")
+	err = addRound("ysc", "2019-01-02 15:58:06")
 	if err != nil {
 		fmt.Println(err)
 	}

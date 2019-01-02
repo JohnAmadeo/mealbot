@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"go/build"
 	"log"
 	"net/http"
@@ -32,13 +33,35 @@ func (mw Middleware) ApplyFake(
 func main() {
 	args := os.Args
 	if len(args) == 2 && args[1] == "pair" {
-		createOrganization("ysc", "johnamadeo.daniswara@yale.edu")
-		createMembersFromCSV("ysc", filepath.Join(build.Default.GOPATH, CSVPath, "ysc.csv"))
-		addRound("ysc", "1999-01-08 04:05:06")
-		rescheduleRound("ysc", "1999-10-08 04:05:06", 0)
-		addRound("ysc", "2019-01-08 04:05:06")
-		runPairingRound("ysc", 0, true)
-		runPairingRound("ysc", 1, true)
+		err := createOrganization("ysc", "johnamadeo.daniswara@yale.edu")
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println(filepath.Join(build.Default.GOPATH, CSVPath, "ysc.csv"))
+		_, err := createMembersFromCSV("ysc", filepath.Join(build.Default.GOPATH, CSVPath, "ysc.csv"))
+		if err != nil {
+			fmt.Println(err)
+		}
+		err = addRound("ysc", "1999-01-08 04:05:06")
+		if err != nil {
+			fmt.Println(err)
+		}
+		err = rescheduleRound("ysc", "1999-10-08 04:05:06", 0)
+		if err != nil {
+			fmt.Println(err)
+		}
+		err = addRound("ysc", "2019-01-08 04:05:06")
+		if err != nil {
+			fmt.Println(err)
+		}
+		err = runPairingRound("ysc", 0, true)
+		if err != nil {
+			fmt.Println(err)
+		}
+		err = runPairingRound("ysc", 1, true)
+		if err != nil {
+			fmt.Println(err)
+		}
 		return
 	}
 

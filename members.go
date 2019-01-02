@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"go/build"
 	"io"
 	"log"
 	"net/http"
@@ -21,7 +20,7 @@ import (
 
 const (
 	MaxMemory            = 32 << 20
-	CSVPath              = "src/github.com/johnamadeo/mealbot/csv/"
+	CSVPath              = "./csv/"
 	FileFlag             = os.O_WRONLY | os.O_CREATE
 	ReadWritePermissions = 0666
 )
@@ -140,7 +139,7 @@ func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 
 	defer formFile.Close()
 
-	filename := filepath.Join(build.Default.GOPATH, CSVPath, handler.Filename)
+	filename := filepath.Join(CSVPath, handler.Filename)
 
 	file, err := os.OpenFile(filename, FileFlag, ReadWritePermissions)
 	if err != nil {

@@ -31,7 +31,7 @@ func (mw Middleware) ApplyFake(
 
 func main() {
 	args := os.Args
-	if len(args) == 2 && args[1] == "" {
+	if len(args) == 2 && args[1] == "pair" {
 		createOrganization("ysc", "johnamadeo.daniswara@yale.edu")
 		createMembersFromCSV("ysc", filepath.Join(build.Default.GOPATH, CSVPath, "ysc.csv"))
 		addRound("ysc", "1999-01-08 04:05:06")

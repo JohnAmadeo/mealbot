@@ -41,7 +41,7 @@ func runTestSequence() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	err = addRound("ysc", "2019-01-02 15:58:06")
+	err = addRound("ysc", "2019-01-02 16:34:06")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -58,8 +58,11 @@ func runTestSequence() {
 func main() {
 	args := os.Args
 	if len(args) == 2 && args[1] == "pair" {
-		// runTestSequence()
-		runPairingScheduler()
+		runTestSequence()
+		err := runPairingScheduler()
+		if err != nil {
+			fmt.Println(err)
+		}
 		return
 	}
 

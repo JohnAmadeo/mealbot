@@ -603,7 +603,7 @@ func runPairingScheduler() error {
 	}
 
 	rows, err := db.Query(
-		"SELECT organization, id FROM rounds WHERE scheduled_date < now() AND done = false",
+		"SELECT organization, id FROM rounds WHERE scheduled_date < now() AT TIME ZONE 'utc' AND done = false",
 	)
 	if err != nil {
 		return err

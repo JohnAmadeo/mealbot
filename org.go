@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -176,6 +177,10 @@ func getOrganizations(admin string) ([]string, error) {
 }
 
 func createOrganization(name string, admin string) error {
+	if name == "" {
+		return errors.New("Organization name cannot be an empty string")
+	}
+
 	db, err := server.CreateDBConnection(LocalDBConnection)
 	defer db.Close()
 	if err != nil {

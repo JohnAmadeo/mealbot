@@ -82,14 +82,22 @@ func getPairsFromDB(orgname string) ([][]GetPairsResponsePair, error) {
 				return roundPairs, err
 			}
 
-			member1, err := getMemberFromDB(orgname, id1, db)
+			member, err := getMemberFromDB(orgname, id1, db)
 			if err != nil {
 				return roundPairs, err
 			}
+			member1 := Member{
+				Name:  member.Name,
+				Email: member.Email,
+			}
 
-			member2, err := getMemberFromDB(orgname, id2, db)
+			member, err = getMemberFromDB(orgname, id2, db)
 			if err != nil {
 				return roundPairs, err
+			}
+			member2 := Member{
+				Name:  member.Name,
+				Email: member.Email,
 			}
 
 			pairs = append(pairs, GetPairsResponsePair{

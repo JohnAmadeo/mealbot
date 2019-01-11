@@ -27,8 +27,8 @@ const (
 
 type Member struct {
 	Organization string
-	Email        string
-	Name         string
+	Email        string `json:"email"`
+	Name         string `json:"name"`
 	Metadata     map[string]string
 	PairCounts   map[string]int
 }

@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	AcessControlAllowOrigin   = "http://localhost:3000" // change to Heroku
+	AcessControlAllowOrigin   = "http://localhost:3000, https://mealbot-web.herokuapp.com" // change to Heroku
 	AccessControlAllowHeaders = "Authorization, Content-Type, Origin, Accept, token"
 )
 

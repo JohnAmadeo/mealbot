@@ -51,8 +51,17 @@ Pseudocode 2
 		- Record the pairing in the set + pairing memory
 	- Pick a random pair and the odd student out (updating memory as well)
 		
-Upload CSV -> Create members in table 
-Select cross-match criteria chip -> Save in org table 
-Change rounds (POST all pending rounds) -> Delete all pending rounds rounds; and re-insert
-Add/remove member -> add row to Members table 
-Run a round -> Load history, run rounds, and insert new history + new pairs		
+DONE CLI MVP Upload CSV -> Create members in table 
+DONE CLI MVP Run a round -> Load history, run rounds, and insert new history + new pairs		
+DONE CLI MVP smtp i.e actually sending emails -> see Alex's code
+
+WEB MVP Select cross-match criteria chip -> Save in org table 
+WEB MVP Change rounds
+- UI: Can delete round 
+- UI: Can change round date; but use react-datepicker to limit range to btw 
+prev/next round 
+
+MISCELLANEOUS TODOS:
+---------------------------------------
+- Submit Google OAuth consent screen for verification (i.e need to deploy first)
+

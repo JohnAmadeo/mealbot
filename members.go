@@ -66,7 +66,7 @@ func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	members, err := getMembersFromDB(orgname)
+	members, err := getMembersFromDBAsMap(orgname)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(server.ErrToBytes(err))
@@ -315,7 +315,7 @@ func saveMembersInDB(members []Member) error {
 	return nil
 }
 
-func getMembersFromDB(orgname string) ([]MemberResponse, error) {
+func getMembersFromDBAsMap(orgname string) ([]MemberResponse, error) {
 	db, err := server.CreateDBConnection(LocalDBConnection)
 	defer db.Close()
 	if err != nil {
@@ -355,6 +355,39 @@ func getMembersFromDB(orgname string) ([]MemberResponse, error) {
 		member["email"] = email
 
 		members = append(members, member)
+	}
+
+	return members, nil
+}
+
+func getMemberFromDBInPairFormat(orgname string) ([]Member, error) {
+	db, err := server.CreateDBConnection(LocalDBConnection)
+	defer db.Close()
+	if err != nil {
+		return []Member{}, err
+	}
+
+	members := []Member{}
+
+	rows, err := db.Query(
+		"SELECT name, email FROM members WHERE organization = $1",
+		orgname,
+	)
+	if err != nil {
+		return members, err
+	}
+
+	for rows.Next() {
+		var name, email string
+		err := rows.Scan(&name, &email)
+		if err != nil {
+			return members, err
+		}
+
+		members = append(members, Member{
+			Name:  name,
+			Email: email,
+		})
 	}
 
 	return members, nil

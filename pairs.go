@@ -61,20 +61,26 @@ func getPairsFromDB(orgname string) ([][]GetPairsResponsePair, error) {
 		return roundPairs, err
 	}
 
-	roundNum := 0
+	members, err := getMemberFromDBInPairFormat(orgname)
+	membersMap := map[string]Member{}
+	for _, member := range members {
+		membersMap[member.Email] = member
+	}
+
+	round := 0
 
 	for {
 		pairRows, err := db.Query(
 			"SELECT id1, id2 FROM pairs WHERE organization = $1 AND round = $2",
 			orgname,
-			roundNum,
+			round,
 		)
 		if err != nil {
 			return roundPairs, err
 		}
 
+		numPairs := 0
 		pairs := []GetPairsResponsePair{}
-		numRows := 0
 		for pairRows.Next() {
 			var id1, id2 string
 			err := pairRows.Scan(&id1, &id2)
@@ -82,38 +88,20 @@ func getPairsFromDB(orgname string) ([][]GetPairsResponsePair, error) {
 				return roundPairs, err
 			}
 
-			member, err := getMemberFromDB(orgname, id1)
-			if err != nil {
-				return roundPairs, err
-			}
-			member1 := Member{
-				Name:  member.Name,
-				Email: member.Email,
-			}
-
-			member, err = getMemberFromDB(orgname, id2)
-			if err != nil {
-				return roundPairs, err
-			}
-			member2 := Member{
-				Name:  member.Name,
-				Email: member.Email,
-			}
-
 			pairs = append(pairs, GetPairsResponsePair{
-				Member1: member1,
-				Member2: member2,
+				Member1: membersMap[id1],
+				Member2: membersMap[id2],
 			})
 
-			numRows += 1
+			numPairs += 1
 		}
 
-		if numRows == 0 {
+		if numPairs == 0 {
 			break
 		}
 
 		roundPairs = append(roundPairs, pairs)
-		roundNum += 1
+		round += 1
 	}
 
 	return roundPairs, nil

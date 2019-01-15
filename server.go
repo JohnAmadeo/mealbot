@@ -56,6 +56,11 @@ func runTestSequence() {
 }
 
 func main() {
+	// err := runPairingRound("ysc", 0, true)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+
 	args := os.Args
 	if len(args) == 2 && args[1] == "pair" {
 		// runTestSequence()

@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"database/sql"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -362,7 +361,13 @@ func getMembersFromDB(orgname string) ([]MemberResponse, error) {
 }
 
 // Helper function used in getPairsFromDB
-func getMemberFromDB(orgname string, email string, db *sql.DB) (Member, error) {
+func getMemberFromDB(orgname string, email string) (Member, error) {
+	db, err := server.CreateDBConnection(LocalDBConnection)
+	defer db.Close()
+	if err != nil {
+		return Member{}, err
+	}
+
 	memberRows, err := db.Query(
 		"SELECT name FROM members WHERE organization = $1 AND email = $2",
 		orgname,

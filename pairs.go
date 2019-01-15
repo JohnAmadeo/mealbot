@@ -82,7 +82,7 @@ func getPairsFromDB(orgname string) ([][]GetPairsResponsePair, error) {
 				return roundPairs, err
 			}
 
-			member, err := getMemberFromDB(orgname, id1, db)
+			member, err := getMemberFromDB(orgname, id1)
 			if err != nil {
 				return roundPairs, err
 			}
@@ -91,7 +91,7 @@ func getPairsFromDB(orgname string) ([][]GetPairsResponsePair, error) {
 				Email: member.Email,
 			}
 
-			member, err = getMemberFromDB(orgname, id2, db)
+			member, err = getMemberFromDB(orgname, id2)
 			if err != nil {
 				return roundPairs, err
 			}

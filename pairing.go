@@ -509,14 +509,16 @@ func saveRoundInDB(round Round, students StudentMap, orgname string) error {
 	}
 
 	for pair, _ := range round.Pairs {
-		columns := "(organization, id1, id2, round)"
-		placeholder := "($1, $2, $3, $4)"
+		fmt.Println(pair)
+		columns := "(organization, id1, id2, extraId, round)"
+		placeholder := "($1, $2, $3, $4, $5)"
 
 		_, err := db.Exec(
 			fmt.Sprintf("INSERT INTO pairs %s VALUES %s", columns, placeholder),
 			orgname,
 			pair.Id1,
 			pair.Id2,
+			pair.ExtraId,
 			round.Number,
 		)
 

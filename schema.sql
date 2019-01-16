@@ -34,7 +34,8 @@ CREATE TABLE pairs (
     organization VARCHAR REFERENCES organizations(name),
     id1 VARCHAR REFERENCES members(email),
     id2 VARCHAR REFERENCES members(email),
+    extraId VARCHAR,
     round INTEGER NOT NULL CHECK(round >= 0),
-    PRIMARY KEY (organization, id1, id2, round),
+    PRIMARY KEY (organization, id1, id2, extraId, round),
     FOREIGN KEY (organization, round) REFERENCES rounds(organization, id)
 );

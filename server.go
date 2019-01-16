@@ -41,26 +41,13 @@ func runTestSequence() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	err = addRound("ysc", "2019-01-02 16:34:06")
+	err = runPairingRound("ysc", 0, true)
 	if err != nil {
 		fmt.Println(err)
 	}
-	// err = runPairingRound("ysc", 0, true)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-	// err = runPairingRound("ysc", 1, true)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
 }
 
 func main() {
-	// err := runPairingRound("ysc", 0, true)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
 	args := os.Args
 	if len(args) == 2 && args[1] == "pair" {
 		// runTestSequence()

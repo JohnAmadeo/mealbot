@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 
@@ -8,8 +9,9 @@ import (
 )
 
 type GetPairsResponsePair struct {
-	Member1 Member `json:"member1"`
-	Member2 Member `json:"member2"`
+	Member1     Member `json:"member1"`
+	Member2     Member `json:"member2"`
+	ExtraMember Member `json:"extraMember"`
 }
 
 type GetPairsResponse struct {
@@ -71,7 +73,7 @@ func getPairsFromDB(orgname string) ([][]GetPairsResponsePair, error) {
 
 	for {
 		pairRows, err := db.Query(
-			"SELECT id1, id2 FROM pairs WHERE organization = $1 AND round = $2",
+			"SELECT id1, id2, extraId FROM pairs WHERE organization = $1 AND round = $2",
 			orgname,
 			round,
 		)
@@ -83,15 +85,24 @@ func getPairsFromDB(orgname string) ([][]GetPairsResponsePair, error) {
 		pairs := []GetPairsResponsePair{}
 		for pairRows.Next() {
 			var id1, id2 string
-			err := pairRows.Scan(&id1, &id2)
+			var extraId sql.NullString
+			err := pairRows.Scan(&id1, &id2, &extraId)
 			if err != nil {
 				return roundPairs, err
 			}
 
-			pairs = append(pairs, GetPairsResponsePair{
-				Member1: membersMap[id1],
-				Member2: membersMap[id2],
-			})
+			if extraId.Valid {
+				pairs = append(pairs, GetPairsResponsePair{
+					Member1:     membersMap[id1],
+					Member2:     membersMap[id2],
+					ExtraMember: membersMap[extraId.String],
+				})
+			} else {
+				pairs = append(pairs, GetPairsResponsePair{
+					Member1: membersMap[id1],
+					Member2: membersMap[id2],
+				})
+			}
 
 			numPairs += 1
 		}

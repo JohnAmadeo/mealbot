@@ -336,10 +336,10 @@ func runPairingRound(orgname string, roundNum int, testMode bool) error {
 		}
 
 		if !testMode {
-			// err := sendEmails(toEmails, toNames)
-			// if err != nil {
-			// 	return err
-			// }
+			err := sendEmails(toEmails, toNames)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -597,7 +597,7 @@ func genRFC822EmailReader(
 	)
 }
 
-func runPairingScheduler() error {
+func runPairingScheduler(testMode bool) error {
 	db, err := server.CreateDBConnection(LocalDBConnection)
 	defer db.Close()
 	if err != nil {
@@ -619,8 +619,7 @@ func runPairingScheduler() error {
 			return err
 		}
 
-		// TODO: SWITCH TEST MODE OFF
-		err = runPairingRound(orgname, roundNum, true)
+		err = runPairingRound(orgname, roundNum, testMode)
 		if err != nil {
 			return err
 		}

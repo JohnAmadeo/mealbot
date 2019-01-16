@@ -51,7 +51,7 @@ func main() {
 	args := os.Args
 	if len(args) == 2 && args[1] == "pair" {
 		// runTestSequence()
-		err := runPairingScheduler()
+		err := runPairingScheduler(false)
 		if err != nil {
 			fmt.Println(err)
 		}

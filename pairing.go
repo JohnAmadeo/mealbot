@@ -20,7 +20,7 @@ const (
 	SMTPAddress         = "smtp.gmail.com:587"
 
 	EmailIntro   = "Your Mealbot group this week is:"
-	EmailFooter  = "Sent by your friendly neighborhood Mealbot! Learn more about me at https://mealbot-web.herokuapp.com"
+	EmailFooter  = "Feel free to reply all in this thread for scheduling. I'm a robot, so I can only read 1's and 0's.\n\n Sent by your friendly neighborhood Mealbot! Learn more about me at https://mealbot-web.herokuapp.com"
 	EmailSubject = "Your new Mealbot group"
 )
 

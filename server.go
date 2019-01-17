@@ -29,19 +29,20 @@ func (mw Middleware) ApplyFake(
 }
 
 func runTestSequence() {
-	err := createOrganization("ysc", "johnamadeo.daniswara@yale.edu")
+	err := createOrganization("test", "johnamadeo.daniswara@yale.edu")
 	if err != nil {
 		fmt.Println(err)
 	}
-	_, err = createMembersFromCSV("ysc", "./csv/ysc.csv")
+	_, err = createMembersFromCSV("test", "./csv/test.csv")
 	if err != nil {
 		fmt.Println(err)
 	}
-	err = addRound("ysc", "2019-01-02 15:55:00")
+	err = addRound("test", "2019-01-02 15:55:00")
 	if err != nil {
 		fmt.Println(err)
 	}
-	err = runPairingRound("ysc", 0, true)
+	// actually send out emails!
+	err = runPairingRound("test", 0, false)
 	if err != nil {
 		fmt.Println(err)
 	}

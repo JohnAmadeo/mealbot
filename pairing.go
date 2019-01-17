@@ -4,15 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"log"
 	"math/rand"
 	"os"
 	"strings"
 
-	"github.com/emersion/go-sasl"
-	"github.com/emersion/go-smtp"
 	"github.com/johnamadeo/server"
+	mailgun "github.com/mailgun/mailgun-go"
 )
 
 const (
@@ -23,8 +20,8 @@ const (
 	SMTPAddress         = "smtp.gmail.com:587"
 
 	EmailIntro   = "Your Mealbot group this week is:"
-	EmailFooter  = "Sent by your friendly neighborhood Mealbot! Learn more about me at https://mealbot.herokuapp.com"
-	EmailSubject = "Your weekly Mealbot group"
+	EmailFooter  = "Sent by your friendly neighborhood Mealbot! Learn more about me at https://mealbot-web.herokuapp.com"
+	EmailSubject = "Your new Mealbot group"
 )
 
 type Pair struct {
@@ -336,7 +333,7 @@ func runPairingRound(orgname string, roundNum int, testMode bool) error {
 		}
 
 		if !testMode {
-			err := sendEmails(toEmails, toNames)
+			err := sendEmails(orgname, toEmails, toNames)
 			if err != nil {
 				return err
 			}
@@ -509,7 +506,6 @@ func saveRoundInDB(round Round, students StudentMap, orgname string) error {
 	}
 
 	for pair, _ := range round.Pairs {
-		fmt.Println(pair)
 		columns := "(organization, id1, id2, extraId, round)"
 		placeholder := "($1, $2, $3, $4, $5)"
 
@@ -556,45 +552,50 @@ func saveRoundInDB(round Round, students StudentMap, orgname string) error {
 	return nil
 }
 
-func sendEmails(toEmails []string, toNames []string) error {
-	password, ok := os.LookupEnv("MEALBOT_EMAIL_PASSWORD")
+func sendEmails(orgname string, toEmails []string, toNames []string) error {
+	smtpAddress, ok := os.LookupEnv("MAILGUN_SMTP_LOGIN")
 	if !ok {
-		return errors.New("Password for Mealbot email needs to be set as the environment variable MEALBOT_EMAIL_PASSWORD")
+		return errors.New("environment variable MAILGUN_SMTP_LOGIN not set")
+	}
+	domain, ok := os.LookupEnv("MAILGUN_DOMAIN")
+	if !ok {
+		return errors.New("environment variable MAILGUN_DOMAIN not set")
+	}
+	apiKey, ok := os.LookupEnv("MAILGUN_API_KEY")
+	if !ok {
+		return errors.New("environment variable MAILGUN_API_KEY not set")
 	}
 
-	auth := sasl.NewPlainClient("", MealbotEmailAddress, password)
-	msg := genRFC822EmailReader(
-		toEmails,
-		toNames,
-		EmailSubject,
+	from := fmt.Sprintf("%s Mealbot <%s>", orgname, smtpAddress)
+	text := fmt.Sprintf(
+		"%s \n%s\n\n %s",
 		EmailIntro,
+		strings.Join(toNames, "\r\n"),
 		EmailFooter,
 	)
 
-	err := smtp.SendMail(SMTPAddress, auth, MealbotEmailAddress, toEmails, msg)
+	mg := mailgun.NewMailgun(domain, apiKey)
+	message := mg.NewMessage(
+		from,
+		EmailSubject,
+		text,
+		toEmails...,
+	)
+
+	// ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	// defer cancel()
+	//
+	// // Send the message	with a 10 second timeout
+	// _, _, err := mg.Send(ctx, message)
+
+	_, _, err := mg.Send(message)
+
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
+	fmt.Println("Emails queued on Mailgun!")
 	return nil
-}
-
-func genRFC822EmailReader(
-	toEmails []string,
-	toNames []string,
-	subject string,
-	intro string,
-	footer string,
-) io.Reader {
-	toStr := fmt.Sprintf("To: %s \r\n", strings.Join(toEmails, ", "))
-	subjectStr := fmt.Sprintf("Subject: %s \r\n", subject)
-	introStr := fmt.Sprintf("%s \r\n", intro)
-	bodyStr := strings.Join(toNames, " \r\n")
-	footerStr := fmt.Sprintf("\r\n\r\n %s \r\n", footer)
-
-	return strings.NewReader(
-		toStr + subjectStr + "\r\n" + introStr + bodyStr + footerStr,
-	)
 }
 
 func runPairingScheduler(testMode bool) error {

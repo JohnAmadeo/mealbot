@@ -29,7 +29,17 @@ func (mw Middleware) ApplyFake(
 }
 
 func runTestSequence(testMode bool) {
-	err := createOrganization("test", "johnamadeo.daniswara@yale.edu")
+	err := createOrganization("ysc", "johnamadeo.daniswara@yale.edu")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	_, err = createMembersFromCSV("ysc", "./csv/test_john.csv")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = createOrganization("test", "johnamadeo.daniswara@yale.edu")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -83,7 +93,7 @@ func runTestSequence(testMode bool) {
 func main() {
 	args := os.Args
 	if len(args) == 2 && args[1] == "pair" {
-		// runTestSequence(true)
+		// runTestSequence()
 		err := runPairingScheduler(false)
 		if err != nil {
 			fmt.Println(err)

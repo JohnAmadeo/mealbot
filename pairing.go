@@ -534,8 +534,9 @@ func saveRoundInDB(round Round, students StudentMap, orgname string) error {
 		}
 
 		_, err = db.Exec(
-			"UPDATE members SET pair_counts = $1 WHERE email = $2",
+			"UPDATE members SET pair_counts = $1 WHERE organization = $2 AND email = $3",
 			server.JSONB(bytes),
+			orgname,
 			student.Id,
 		)
 		if err != nil {

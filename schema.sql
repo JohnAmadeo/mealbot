@@ -11,11 +11,12 @@ CREATE TABLE organizations (
 
 CREATE TABLE members (
     organization VARCHAR REFERENCES organizations(name),
-    email VARCHAR PRIMARY KEY,
-    name VARCHAR UNIQUE NOT NULL CHECK(length(name) > 0),
+    email VARCHAR NOT NULL CHECK(length(email) > 0),
+    name VARCHAR NOT NULL CHECK(length(name) > 0),
     metadata JSONB,
     pair_counts JSONB NOT NULL,
-    active BOOLEAN NOT NULL
+    active BOOLEAN NOT NULL,
+    PRIMARY KEY (organization, email)
 );
 
 CREATE TABLE rounds (
@@ -33,10 +34,12 @@ CREATE TABLE rounds (
 
 CREATE TABLE pairs (
     organization VARCHAR REFERENCES organizations(name),
-    id1 VARCHAR REFERENCES members(email),
-    id2 VARCHAR REFERENCES members(email),
+    id1 VARCHAR NOT NULL CHECK(length(id1) > 0),
+    id2 VARCHAR NOT NULL CHECK(length(id2) > 0),
     extraId VARCHAR,
     round INTEGER NOT NULL CHECK(round >= 0),
     PRIMARY KEY (organization, id1, id2, extraId, round),
-    FOREIGN KEY (organization, round) REFERENCES rounds(organization, id)
+    FOREIGN KEY (organization, round) REFERENCES rounds(organization, id),
+    FOREIGN KEY (organization, id1) REFERENCES members(organization, email),
+    FOREIGN KEY (organization, id2) REFERENCES members(organization, email)
 );

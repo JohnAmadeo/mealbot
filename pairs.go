@@ -63,7 +63,7 @@ func getPairsFromDB(orgname string) ([][]GetPairsResponsePair, error) {
 		return roundPairs, err
 	}
 
-	members, err := getMemberFromDBInPairFormat(orgname)
+	members, err := getActiveMembersFromDBInPairFormat(orgname)
 	membersMap := map[string]Member{}
 	for _, member := range members {
 		membersMap[member.Email] = member

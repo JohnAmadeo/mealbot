@@ -7,11 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/johnamadeo/server"
@@ -66,7 +64,7 @@ func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	members, err := getMembersFromDBAsMap(orgname)
+	members, err := getActiveMembersFromDBAsMap(orgname)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(server.ErrToBytes(err))
@@ -231,9 +229,9 @@ func createMembersFromCSV(orgname string, filename string) ([]MemberResponse, er
 		metadata := map[string]string{}
 		for i, val := range row {
 			if headers[i] == "name" {
-				name = val
+				name = strings.Trim(val, " ")
 			} else if headers[i] == "email" {
-				email = val
+				email = strings.Trim(val, " ")
 			} else {
 				metadata[headers[i]] = val
 			}
@@ -257,7 +255,7 @@ func createMembersFromCSV(orgname string, filename string) ([]MemberResponse, er
 		}
 	}
 
-	err = saveMembersInDB(members)
+	err = saveMembersInDB(orgname, members)
 	if err != nil {
 		return []MemberResponse{}, err
 	}
@@ -273,15 +271,89 @@ func createMembersFromCSV(orgname string, filename string) ([]MemberResponse, er
 	return membersJson, nil
 }
 
-// TODO: Batch insert
-func saveMembersInDB(members []Member) error {
+// TODO: Use transactions!!! Current implementation is brittle since it does
+// rollback if insertion of multiple members fails halfway
+func saveMembersInDB(orgname string, newMembers []Member) error {
 	db, err := server.CreateDBConnection(LocalDBConnection)
 	defer db.Close()
 	if err != nil {
 		return err
 	}
 
+	newMembersMap := map[string]Member{}
+	for _, member := range newMembers {
+		newMembersMap[member.Email] = member
+	}
+
+	membersMap := map[string]Member{}
+	members, err := getMembersFromDB(orgname, false)
+	if err != nil {
+		return err
+	}
+
 	for _, member := range members {
+		membersMap[member.Email] = member
+	}
+
+	// remove existing members that are not in new list
+	for email, _ := range membersMap {
+		if _, ok := newMembersMap[email]; !ok {
+			delete(membersMap, email)
+		}
+	}
+
+	// update fields of existing member
+	for email, _ := range membersMap {
+		if _, ok := newMembersMap[email]; ok {
+			membersMap[email] = Member{
+				Organization: membersMap[email].Organization,
+				Email:        membersMap[email].Email,      // cannot be updated by user
+				PairCounts:   membersMap[email].PairCounts, // update later
+				Name:         newMembersMap[email].Name,
+				Metadata:     newMembersMap[email].Metadata,
+			}
+		}
+	}
+
+	// update pair counts of existing members with new members
+	for email, member := range membersMap {
+		for newEmail, _ := range newMembersMap {
+			// if new email is not existing member, set the pair count to 0
+			if _, ok := member.PairCounts[newEmail]; !ok {
+				member.PairCounts[newEmail] = 0
+			}
+		}
+
+		membersMap[email] = member
+	}
+
+	// save new member
+	for email, _ := range newMembersMap {
+		if _, ok := membersMap[email]; !ok {
+			pairCounts := map[string]int{}
+			for otherEmail, _ := range newMembersMap {
+				if otherEmail == email {
+					continue
+				}
+				pairCounts[otherEmail] = 0
+			}
+
+			membersMap[email] = Member{
+				Organization: orgname,
+				Name:         newMembersMap[email].Name,
+				Email:        newMembersMap[email].Email,
+				Metadata:     newMembersMap[email].Metadata,
+				PairCounts:   pairCounts,
+			}
+		}
+	}
+
+	existingMemberEmails := map[string]bool{}
+	for _, member := range members {
+		existingMemberEmails[member.Email] = true
+	}
+
+	for _, member := range membersMap {
 		metadataBytes, err := json.Marshal(member.Metadata)
 		if err != nil {
 			return err
@@ -292,75 +364,88 @@ func saveMembersInDB(members []Member) error {
 			return err
 		}
 
-		columns := "(organization, email, name, metadata, pair_counts)"
-		placeholders := "($1, $2, $3, $4, $5)"
-		_, err = db.Exec(
-			fmt.Sprintf(
-				"INSERT INTO members %s VALUES %s",
-				columns,
-				placeholders,
-			),
-			member.Organization,
-			member.Email,
-			member.Name,
-			server.JSONB(metadataBytes),
-			server.JSONB(pairCountsBytes),
-		)
+		if _, ok := existingMemberEmails[member.Email]; !ok {
+			columns := "(organization, email, name, metadata, pair_counts, active)"
+			placeholders := "($1, $2, $3, $4, $5, $6)"
+			_, err = db.Exec(
+				fmt.Sprintf(
+					"INSERT INTO members %s VALUES %s",
+					columns,
+					placeholders,
+				),
+				member.Organization,
+				member.Email,
+				member.Name,
+				server.JSONB(metadataBytes),
+				server.JSONB(pairCountsBytes),
+				true,
+			)
 
-		if err != nil && !strings.Contains(err.Error(), DuplicateKeyErr) {
-			return err
+			if err != nil {
+				return err
+			}
+		} else {
+			_, err = db.Exec(
+				"UPDATE members SET name = $1, metadata = $2, pair_counts = $3, active = $4 WHERE organization = $5 AND email = $6",
+				member.Name,
+				server.JSONB(metadataBytes),
+				server.JSONB(pairCountsBytes),
+				true,
+				orgname,
+				member.Email,
+			)
+		}
+	}
+
+	for email, _ := range existingMemberEmails {
+		if _, ok := membersMap[email]; !ok {
+			_, err = db.Exec(
+				"UPDATE members SET active = $1 WHERE organization = $2 AND email = $3",
+				false,
+				orgname,
+				email,
+			)
 		}
 	}
 
 	return nil
 }
 
-func getMembersFromDBAsMap(orgname string) ([]MemberResponse, error) {
-	db, err := server.CreateDBConnection(LocalDBConnection)
-	defer db.Close()
+func getActiveMembersFromDBAsMap(orgname string) ([]MemberResponse, error) {
+	members, err := getMembersFromDB(orgname, true)
 	if err != nil {
 		return []MemberResponse{}, err
 	}
 
-	members := []MemberResponse{}
-
-	rows, err := db.Query(
-		"SELECT name, email, metadata FROM members WHERE organization = $1 ORDER BY name",
-		orgname,
-	)
-	if err != nil {
-		return members, err
+	mapMembers := []MemberResponse{}
+	for _, member := range members {
+		mapMember := member.Metadata
+		mapMember["name"] = member.Name
+		mapMember["email"] = member.Email
+		mapMembers = append(mapMembers, mapMember)
 	}
 
-	for rows.Next() {
-		var name, email string
-		var metadataJson server.JSONB
-		err := rows.Scan(&name, &email, &metadataJson)
-		if err != nil {
-			return members, err
-		}
-
-		bytes, err := metadataJson.MarshalJSON()
-		if err != nil {
-			return members, err
-		}
-
-		var member map[string]string
-		err = json.Unmarshal(bytes, &member)
-		if err != nil {
-			return members, err
-		}
-
-		member["name"] = name
-		member["email"] = email
-
-		members = append(members, member)
-	}
-
-	return members, nil
+	return mapMembers, nil
 }
 
-func getMemberFromDBInPairFormat(orgname string) ([]Member, error) {
+func getActiveMembersFromDBInPairFormat(orgname string) ([]Member, error) {
+	members, err := getMembersFromDB(orgname, true)
+	if err != nil {
+		return []Member{}, err
+	}
+
+	pairMembers := []Member{}
+	for _, member := range members {
+		pairMembers = append(pairMembers, Member{
+			Name:  member.Name,
+			Email: member.Email,
+		})
+	}
+
+	return pairMembers, nil
+}
+
+func getMembersFromDB(orgname string, onlyActive bool) ([]Member, error) {
 	db, err := server.CreateDBConnection(LocalDBConnection)
 	defer db.Close()
 	if err != nil {
@@ -370,7 +455,7 @@ func getMemberFromDBInPairFormat(orgname string) ([]Member, error) {
 	members := []Member{}
 
 	rows, err := db.Query(
-		"SELECT name, email FROM members WHERE organization = $1",
+		"SELECT organization, name, email, metadata, pair_counts, active FROM members WHERE organization = $1 ORDER BY name",
 		orgname,
 	)
 	if err != nil {
@@ -378,87 +463,48 @@ func getMemberFromDBInPairFormat(orgname string) ([]Member, error) {
 	}
 
 	for rows.Next() {
-		var name, email string
-		err := rows.Scan(&name, &email)
+		var organization, name, email string
+		var metadataJson, pairCountsJson server.JSONB
+		var active bool
+		err := rows.Scan(&organization, &name, &email, &metadataJson, &pairCountsJson, &active)
+		if err != nil {
+			return members, err
+		}
+
+		if onlyActive && !active {
+			continue
+		}
+
+		bytes, err := metadataJson.MarshalJSON()
+		if err != nil {
+			return members, err
+		}
+
+		var metadata map[string]string
+		err = json.Unmarshal(bytes, &metadata)
+		if err != nil {
+			return members, err
+		}
+
+		bytes, err = pairCountsJson.MarshalJSON()
+		if err != nil {
+			return members, err
+		}
+
+		var pairCounts map[string]int
+		err = json.Unmarshal(bytes, &pairCounts)
 		if err != nil {
 			return members, err
 		}
 
 		members = append(members, Member{
-			Name:  name,
-			Email: email,
+			Organization: organization,
+			Name:         name,
+			Email:        email,
+			Metadata:     metadata,
+			PairCounts:   pairCounts,
 		})
 	}
 
 	return members, nil
-}
-
-// Helper function used in getPairsFromDB
-func getMemberFromDB(orgname string, email string) (Member, error) {
-	db, err := server.CreateDBConnection(LocalDBConnection)
-	defer db.Close()
-	if err != nil {
-		return Member{}, err
-	}
-
-	memberRows, err := db.Query(
-		"SELECT name FROM members WHERE organization = $1 AND email = $2",
-		orgname,
-		email,
-	)
-	if err != nil {
-		return Member{}, err
-	}
-
-	var member Member
-	for memberRows.Next() {
-		var name string
-		err := memberRows.Scan(&name)
-		if err != nil {
-			return Member{}, err
-		}
-
-		member = Member{
-			Name:  name,
-			Email: email,
-		}
-		break
-	}
-
-	return member, nil
-}
-
-func readCSV_TEST(fileName string) [][]string {
-	f, err := os.Open(fileName)
-	if err != nil {
-		fmt.Println(err)
-		return [][]string{}
-	}
-
-	rawStudents := [][]string{
-		[]string{},
-		[]string{},
-		[]string{},
-		[]string{},
-	}
-
-	reader := csv.NewReader(bufio.NewReader(f))
-	for {
-		line, error := reader.Read()
-		if error == io.EOF {
-			break
-		} else if error != nil {
-			log.Fatal(error)
-		}
-		year, err := strconv.Atoi(line[3])
-		if err != nil {
-			continue
-		}
-		rawStudents[3-(year-2019)] = append(
-			rawStudents[3-(year-2019)],
-			fmt.Sprintf("%s %d", line[0], year),
-		)
-	}
-
-	return rawStudents
 }

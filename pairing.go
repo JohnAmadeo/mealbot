@@ -416,60 +416,67 @@ func getStudentsFromDB(orgname string) (StudentMap, error) {
 		return StudentMap{}, err
 	}
 
-	rows, err := db.Query(
-		"SELECT * FROM members WHERE organization = $1",
-		orgname,
-	)
+	// rows, err := db.Query(
+	// 	"SELECT * FROM members WHERE organization = $1",
+	// 	orgname,
+	// )
+	// if err != nil {
+	// 	return StudentMap{}, err
+	// }
+	// defer rows.Close()
+	//
+	// students := StudentMap{}
+	// for rows.Next() {
+	// 	var organization, email, name string
+	// 	var metadataJson, pairCountsJson server.JSONB
+	//
+	// 	err := rows.Scan(
+	// 		&organization,
+	// 		&email,
+	// 		&name,
+	// 		&metadataJson,
+	// 		&pairCountsJson,
+	// 	)
+	// 	if err != nil {
+	// 		return StudentMap{}, err
+	// 	}
+	//
+	// 	bytes, err := metadataJson.MarshalJSON()
+	// 	if err != nil {
+	// 		return StudentMap{}, err
+	// 	}
+	//
+	// 	var metadata map[string]string
+	// 	err = json.Unmarshal(bytes, &metadata)
+	// 	if err != nil {
+	// 		return StudentMap{}, err
+	// 	}
+	//
+	// 	bytes, err = pairCountsJson.MarshalJSON()
+	// 	if err != nil {
+	// 		return StudentMap{}, err
+	// 	}
+	//
+	// 	var pairCounts map[string]int
+	// 	err = json.Unmarshal(bytes, &pairCounts)
+	// 	if err != nil {
+	// 		return StudentMap{}, err
+	// 	}
+
+	students := StudentMap{}
+	members, err := getMembersFromDB(orgname, true)
 	if err != nil {
 		return StudentMap{}, err
 	}
-	defer rows.Close()
 
-	students := StudentMap{}
-	for rows.Next() {
-		var organization, email, name string
-		var metadataJson, pairCountsJson server.JSONB
-
-		err := rows.Scan(
-			&organization,
-			&email,
-			&name,
-			&metadataJson,
-			&pairCountsJson,
-		)
-		if err != nil {
-			return StudentMap{}, err
-		}
-
-		bytes, err := metadataJson.MarshalJSON()
-		if err != nil {
-			return StudentMap{}, err
-		}
-
-		var metadata map[string]string
-		err = json.Unmarshal(bytes, &metadata)
-		if err != nil {
-			return StudentMap{}, err
-		}
-
-		bytes, err = pairCountsJson.MarshalJSON()
-		if err != nil {
-			return StudentMap{}, err
-		}
-
-		var pairCounts map[string]int
-		err = json.Unmarshal(bytes, &pairCounts)
-		if err != nil {
-			return StudentMap{}, err
-		}
-
-		students[email] = Student{
-			Id:         email,
-			Name:       name,
-			Trait:      metadata[crossMatchTrait],
+	for _, member := range members {
+		students[member.Email] = Student{
+			Id:         member.Email,
+			Name:       member.Name,
+			Trait:      member.Metadata[crossMatchTrait],
 			PartnerIds: []string{},
 			BackupIds:  []string{},
-			PairCounts: pairCounts,
+			PairCounts: member.PairCounts,
 		}
 	}
 

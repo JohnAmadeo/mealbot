@@ -14,7 +14,8 @@ CREATE TABLE members (
     email VARCHAR PRIMARY KEY,
     name VARCHAR UNIQUE NOT NULL CHECK(length(name) > 0),
     metadata JSONB,
-    pair_counts JSONB NOT NULL
+    pair_counts JSONB NOT NULL,
+    active BOOLEAN NOT NULL
 );
 
 CREATE TABLE rounds (

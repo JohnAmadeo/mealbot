@@ -205,7 +205,11 @@ func addRound(orgname string, roundDate string) error {
 		return err
 	}
 
-	rows, err := db.Query("SELECT MAX(id) FROM rounds")
+	rows, err := db.Query(
+		"SELECT MAX(id) FROM rounds WHERE organization = $1",
+		orgname,
+	)
+
 	if err != nil {
 		return err
 	}

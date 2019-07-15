@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
 
 	"github.com/johnamadeo/server"
 )
@@ -79,6 +79,6 @@ func createLastRoundWithFromPairCounts() error {
 		}
 	}
 
-	fmt.Println("DONE!")
+	fmt.Println("Done migrating from using pair counts to last round with in pairing algorithm!")
 	return nil
 }

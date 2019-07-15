@@ -71,9 +71,11 @@ func main() {
 				fmt.Println(err)
 			}
 			return
-		}
-		if args[1] == "migrate" {
-			createLastRoundWithFromPairCounts()		
+		} else if args[1] == "migrate" {
+			createLastRoundWithFromPairCounts()
+			return
+		} else {
+			fmt.Printf("argument '%s' not recognized", args[1])
 			return
 		}
 	}

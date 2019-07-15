@@ -11,17 +11,23 @@ import (
 )
 
 const (
+	// InvalidAccessToken : Message to show if invalid access is invalid
 	InvalidAccessToken = "Invalid access token"
-	Issuer             = "https://mealbot.auth0.com/"
-	Audience           = "https://mealbot-2.herokuapp.com/"
-	JSONWebKeySet      = "https://mealbot.auth0.com/.well-known/jwks.json"
+	// Issuer : Value of the 'iss' claim in a JSON Web Token https://jwt.io/introduction/
+	Issuer = "https://mealbot.auth0.com/"
+	// Audience : Value of the 'aud' claim in a JSON Web Token https://jwt.io/introduction/
+	Audience = "https://mealbot-2.herokuapp.com/"
+	// JSONWebKeySet : Location of keys containing public keys used for verifying any JSON Web Token issued by the authorization server https://auth0.com/docs/jwks
+	JSONWebKeySet = "https://mealbot.auth0.com/.well-known/jwks.json"
 )
 
+// CustomJWTMiddleware : HTTP Handler w/ authentication capabilities
 type CustomJWTMiddleware struct {
 	ValidationKeyGetter jwt.Keyfunc
 	SigningMethod       jwt.SigningMethod
 }
 
+// Handler : Start HTTP server if JWT is valid; else return
 func (mw *CustomJWTMiddleware) Handler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err := mw.CheckJWT(w, r)
@@ -33,6 +39,7 @@ func (mw *CustomJWTMiddleware) Handler(h http.Handler) http.Handler {
 	})
 }
 
+// CheckJWT : Validate JWT sent to server
 func (mw *CustomJWTMiddleware) CheckJWT(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -69,10 +76,12 @@ func (mw *CustomJWTMiddleware) CheckJWT(
 	return nil
 }
 
+// Jwks :
 type Jwks struct {
 	Keys []JSONWebKeys `json:"keys"`
 }
 
+// JSONWebKeys : https://auth0.com/docs/jwks
 type JSONWebKeys struct {
 	Kty string   `json:"kty"`
 	Kid string   `json:"kid"`
@@ -82,14 +91,12 @@ type JSONWebKeys struct {
 	X5c []string `json:"x5c"`
 }
 
-type Message struct {
-	Message string
-}
-
+// GetFakeAuthHandler : Return handler w/o wrapping it w/ authentication; for testing
 func GetFakeAuthHandler(handler http.Handler) http.Handler {
 	return handler
 }
 
+// GetAuthHandler : Create handler w/ authentication logic for validating JWT sent to server
 func GetAuthHandler(handler http.Handler) http.Handler {
 	mw := &CustomJWTMiddleware{
 		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
@@ -142,7 +149,7 @@ func getPEMCertificate(token *jwt.Token) (string, error) {
 		return cert, err
 	}
 
-	for k, _ := range jwks.Keys {
+	for k := range jwks.Keys {
 		if token.Header["kid"] == jwks.Keys[k].Kid {
 			cert = "-----BEGIN CERTIFICATE-----\n" +
 				jwks.Keys[k].X5c[0] +

@@ -8,16 +8,19 @@ import (
 	"github.com/johnamadeo/server"
 )
 
+// GetPairsResponsePair : Data structure for a pairing
 type GetPairsResponsePair struct {
 	Member1     Member `json:"member1"`
 	Member2     Member `json:"member2"`
 	ExtraMember Member `json:"extraMember"`
 }
 
+// GetPairsResponse : Data structure for storing pairings, separated by rounds
 type GetPairsResponse struct {
 	RoundPairs [][]GetPairsResponsePair `json:"roundPairs"`
 }
 
+// GetPairsHandler : HTTP Handler for getting pairings for an organization
 func GetPairsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -54,6 +57,7 @@ func GetPairsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(bytes)
 }
 
+// getPairsFromDB : Get all the pairings for a particular organization
 func getPairsFromDB(orgname string) ([][]GetPairsResponsePair, error) {
 	roundPairs := [][]GetPairsResponsePair{}
 
@@ -85,17 +89,17 @@ func getPairsFromDB(orgname string) ([][]GetPairsResponsePair, error) {
 		pairs := []GetPairsResponsePair{}
 		for pairRows.Next() {
 			var id1, id2 string
-			var extraId sql.NullString
-			err := pairRows.Scan(&id1, &id2, &extraId)
+			var extraID sql.NullString
+			err := pairRows.Scan(&id1, &id2, &extraID)
 			if err != nil {
 				return roundPairs, err
 			}
 
-			if extraId.Valid {
+			if extraID.Valid {
 				pairs = append(pairs, GetPairsResponsePair{
 					Member1:     membersMap[id1],
 					Member2:     membersMap[id2],
-					ExtraMember: membersMap[extraId.String],
+					ExtraMember: membersMap[extraID.String],
 				})
 			} else {
 				pairs = append(pairs, GetPairsResponsePair{
@@ -104,7 +108,7 @@ func getPairsFromDB(orgname string) ([][]GetPairsResponsePair, error) {
 				})
 			}
 
-			numPairs += 1
+			numPairs++
 		}
 
 		if numPairs == 0 {
@@ -112,7 +116,7 @@ func getPairsFromDB(orgname string) ([][]GetPairsResponsePair, error) {
 		}
 
 		roundPairs = append(roundPairs, pairs)
-		round += 1
+		round++
 	}
 
 	return roundPairs, nil

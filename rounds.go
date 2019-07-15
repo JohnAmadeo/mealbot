@@ -10,18 +10,19 @@ import (
 )
 
 const (
-	// VERY rough check; need to improve
+	// NoMaxRoundErr : TODO
 	NoMaxRoundErr = "converting driver.Value type <nil>"
 
-	// Postgres timestamp string template patterns can be found in
-	// https://www.postgresql.org/docs/8.1/functions-formatting.html
+	// TimestampFormat : Postgres timestamp string template patterns can be found in https://www.postgresql.org/docs/8.1/functions-formatting.html
 	TimestampFormat = "YYYY-MM-DD HH24:MI:ssZ"
 )
 
+// GetRoundsResponse : Data structure for storing the dates for each round
 type GetRoundsResponse struct {
 	Rounds []string `json:"rounds"`
 }
 
+// AddRoundHandler : HTTP handler for scheduling a new round on a certain date
 func AddRoundHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -51,6 +52,7 @@ func AddRoundHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(server.StrToBytes("Successfully scheduled a new round"))
 }
 
+// GetRoundsHandler : HTTP handler for retrieving the dates for all rounds scheduled
 func GetRoundsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -84,6 +86,7 @@ func GetRoundsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(bytes)
 }
 
+// RoundHandler : Combined HTTP handler for rounds
 func RoundHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		_, err := getQueryParam(r, "roundId")
@@ -131,6 +134,7 @@ func getRoundsFromDB(orgname string) ([]string, error) {
 	return rounds, nil
 }
 
+// RemoveRoundHandler : HTTP handler for cancelling a previously scheduled round
 func RemoveRoundHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "DELETE" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -146,14 +150,14 @@ func RemoveRoundHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	orgname := values[0]
-	roundId, err := strconv.Atoi(values[1])
+	roundID, err := strconv.Atoi(values[1])
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(server.ErrToBytes(err))
 		return
 	}
 
-	err = removeRound(orgname, roundId)
+	err = removeRound(orgname, roundID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(server.ErrToBytes(err))
@@ -164,6 +168,7 @@ func RemoveRoundHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(server.StrToBytes("Successfully removed round"))
 }
 
+// RescheduleRoundHandler : HTTP handler for rescheduling the date of a particular round
 func RescheduleRoundHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -180,14 +185,14 @@ func RescheduleRoundHandler(w http.ResponseWriter, r *http.Request) {
 
 	orgname := values[0]
 	roundDate := values[1]
-	roundId, err := strconv.Atoi(values[2])
+	roundID, err := strconv.Atoi(values[2])
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(server.ErrToBytes(err))
 		return
 	}
 
-	err = rescheduleRound(orgname, roundDate, roundId)
+	err = rescheduleRound(orgname, roundDate, roundID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(server.ErrToBytes(err))
@@ -211,9 +216,9 @@ func addRound(orgname string, roundDate string) error {
 	}
 	defer rows.Close()
 
-	maxRoundId := -1
+	maxRoundID := -1
 	for rows.Next() {
-		err := rows.Scan(&maxRoundId)
+		err := rows.Scan(&maxRoundID)
 
 		if err != nil && !strings.Contains(err.Error(), NoMaxRoundErr) {
 			return err
@@ -224,7 +229,7 @@ func addRound(orgname string, roundDate string) error {
 	_, err = db.Exec(
 		"INSERT INTO rounds (organization, id, scheduled_date, done) VALUES ($1, $2, $3, $4)",
 		orgname,
-		maxRoundId+1,
+		maxRoundID+1,
 		roundDate,
 		false,
 	)
@@ -235,7 +240,7 @@ func addRound(orgname string, roundDate string) error {
 	return nil
 }
 
-func removeRound(orgname string, roundId int) error {
+func removeRound(orgname string, roundID int) error {
 	db, err := server.CreateDBConnection(LocalDBConnection)
 	defer db.Close()
 	if err != nil {
@@ -245,7 +250,7 @@ func removeRound(orgname string, roundId int) error {
 	_, err = db.Exec(
 		"DELETE FROM rounds WHERE organization = $1 AND id = $2",
 		orgname,
-		roundId,
+		roundID,
 	)
 	if err != nil {
 		return err
@@ -254,9 +259,9 @@ func removeRound(orgname string, roundId int) error {
 	for {
 		result, err := db.Exec(
 			"UPDATE rounds SET id = $1 WHERE organization = $2 AND id = $3",
-			roundId,
+			roundID,
 			orgname,
-			roundId+1,
+			roundID+1,
 		)
 		if err != nil {
 			return err
@@ -265,13 +270,13 @@ func removeRound(orgname string, roundId int) error {
 			break
 		}
 
-		roundId += 1
+		roundID++
 	}
 
 	return nil
 }
 
-func rescheduleRound(orgname string, roundDate string, roundId int) error {
+func rescheduleRound(orgname string, roundDate string, roundID int) error {
 	db, err := server.CreateDBConnection(LocalDBConnection)
 	defer db.Close()
 	if err != nil {
@@ -282,7 +287,7 @@ func rescheduleRound(orgname string, roundDate string, roundId int) error {
 		"UPDATE rounds SET scheduled_date = $1 WHERE organization = $2 AND id = $3",
 		roundDate,
 		orgname,
-		roundId,
+		roundID,
 	)
 	if err != nil {
 		return err

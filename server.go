@@ -72,7 +72,7 @@ func main() {
 			}
 			return
 		} else if args[1] == "migrate" {
-			err := createLastRoundWithFromPairCounts()
+			err := migrateToLastRoundWithForPairing()
 			if err != nil {
 				fmt.Println(err)
 			}

@@ -7,7 +7,7 @@ import (
 	"github.com/johnamadeo/server"
 )
 
-func createLastRoundWithFromPairCounts() error {
+func migrateToLastRoundWithForPairing() error {
 	db, err := server.CreateDBConnection(LocalDBConnection)
 	defer db.Close()
 	if err != nil {
@@ -38,6 +38,7 @@ func createLastRoundWithFromPairCounts() error {
 		}
 
 		for _, member := range members {
+			member.LastRoundWith = map[string]int{}
 			membersMap[member.Email] = member
 		}
 
@@ -48,14 +49,22 @@ func createLastRoundWithFromPairCounts() error {
 
 		for round, roundPairs := range pairs {
 			for _, pairing := range roundPairs {
-				membersMap[pairing.Member1.Email].LastRoundWith[pairing.Member2.Email] = round
-				membersMap[pairing.Member2.Email].LastRoundWith[pairing.Member1.Email] = round
+				member1Email := pairing.Member1.Email
+				member2Email := pairing.Member2.Email
+				extraMemberEmail := pairing.ExtraMember.Email
 
-				if pairing.ExtraMember.Email != "" {
-					membersMap[pairing.Member1.Email].LastRoundWith[pairing.ExtraMember.Email] = round
-					membersMap[pairing.Member2.Email].LastRoundWith[pairing.ExtraMember.Email] = round
-					membersMap[pairing.ExtraMember.Email].LastRoundWith[pairing.Member1.Email] = round
-					membersMap[pairing.ExtraMember.Email].LastRoundWith[pairing.Member2.Email] = round
+				// Need to check if member in the pairing is still active
+				if _, ok := membersMap[member1Email]; ok {
+					membersMap[member1Email].LastRoundWith[member2Email] = round
+				}
+				if _, ok := membersMap[member2Email]; ok {
+					membersMap[member2Email].LastRoundWith[member1Email] = round
+				}
+				if _, ok := membersMap[extraMemberEmail]; ok {
+					membersMap[member1Email].LastRoundWith[extraMemberEmail] = round
+					membersMap[member2Email].LastRoundWith[extraMemberEmail] = round
+					membersMap[extraMemberEmail].LastRoundWith[member1Email] = round
+					membersMap[extraMemberEmail].LastRoundWith[member2Email] = round
 				}
 			}
 		}
@@ -79,6 +88,6 @@ func createLastRoundWithFromPairCounts() error {
 		}
 	}
 
-	fmt.Println("Done migrating from using pair counts to last round with in pairing algorithm!")
+	fmt.Println("Done migrating to 'last round with' data structure in pairing algorithm!")
 	return nil
 }

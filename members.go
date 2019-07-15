@@ -16,32 +16,42 @@ import (
 )
 
 const (
-	MaxMemory            = 32 << 20
-	CSVPath              = "./csv/"
-	FileFlag             = os.O_WRONLY | os.O_CREATE
+	// MaxMemory : Max. amount of memory when parsing multipart form in the HTTP header
+	MaxMemory = 32 << 20
+	// CSVPath : Filepath for accessing local CSV files
+	CSVPath = "./csv/"
+	// FileFlag :
+	FileFlag = os.O_WRONLY | os.O_CREATE
+	// ReadWritePermissions :
 	ReadWritePermissions = 0666
 )
 
+// Member :
 type Member struct {
-	Organization string
-	Email        string `json:"email"`
-	Name         string `json:"name"`
-	Metadata     map[string]string
-	PairCounts   map[string]int
+	Organization  string
+	Email         string `json:"email"`
+	Name          string `json:"name"`
+	Metadata      map[string]string
+	LastRoundWith map[string]int
 }
 
+// MemberResponse : Data structure for representing a member
 type MemberResponse map[string]string
+
+// CreateMembersResponse :
 type CreateMembersResponse struct {
 	Members []MemberResponse `json:"members"`
 	Traits  []string         `json:"traits"`
 }
 
+// GetMembersResponse :
 type GetMembersResponse struct {
 	Members         []MemberResponse `json:"members"`
 	Traits          []string         `json:"traits"`
 	CrossMatchTrait string           `json:"crossMatchTrait"`
 }
 
+// MembersHandler : Combined handlers for create and retrieving members
 func MembersHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		CreateMembersHandler(w, r)
@@ -50,6 +60,7 @@ func MembersHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetMembersHandler : HTTP handler for retrieving members
 func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -73,14 +84,14 @@ func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
 
 	traits := []string{}
 	if len(members) > 0 {
-		for trait, _ := range members[0] {
+		for trait := range members[0] {
 			if trait != "name" && trait != "email" {
 				traits = append(traits, trait)
 			}
 		}
 	}
 
-	crossMatchTrait, err := getCrossMatchTrait(orgname)
+	crossMatchTrait, err := GetCrossMatchTrait(orgname)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(server.ErrToBytes(err))
@@ -106,6 +117,7 @@ func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(bytes)
 }
 
+// CreateMembersHandler : HTTP handler for creating members
 func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -161,7 +173,7 @@ func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var traits []string
-	for trait, _ := range members[0] {
+	for trait := range members[0] {
 		if trait != "name" && trait != "email" {
 			traits = append(traits, trait)
 		}
@@ -183,6 +195,7 @@ func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(bytes)
 }
 
+// isValidFormatCSV :
 func isValidFormatCSV(headers []string) bool {
 	for _, val := range headers {
 		if strings.ToLower(val) == "name" {
@@ -238,20 +251,20 @@ func createMembersFromCSV(orgname string, filename string) ([]MemberResponse, er
 		}
 
 		members = append(members, Member{
-			Organization: orgname, // Need to grab from HTTP request
-			Email:        email,
-			Name:         name,
-			Metadata:     metadata,
-			PairCounts:   map[string]int{}, // fill in later
+			Organization:  orgname, // Need to grab from HTTP request
+			Email:         email,
+			Name:          name,
+			Metadata:      metadata,
+			LastRoundWith: map[string]int{}, // fill in later
 		})
 	}
 
-	for i, _ := range members {
-		for j, _ := range members {
+	for i := range members {
+		for j := range members {
 			if i == j {
 				continue
 			}
-			members[i].PairCounts[members[j].Email] = 0
+			members[i].LastRoundWith[members[j].Email] = -1
 		}
 	}
 
@@ -260,15 +273,15 @@ func createMembersFromCSV(orgname string, filename string) ([]MemberResponse, er
 		return []MemberResponse{}, err
 	}
 
-	var membersJson []MemberResponse
+	var membersJSON []MemberResponse
 	for _, member := range members {
-		memberJson := member.Metadata
-		memberJson["name"] = member.Name
-		memberJson["email"] = member.Email
-		membersJson = append(membersJson, memberJson)
+		memberJSON := member.Metadata
+		memberJSON["name"] = member.Name
+		memberJSON["email"] = member.Email
+		membersJSON = append(membersJSON, memberJSON)
 	}
 
-	return membersJson, nil
+	return membersJSON, nil
 }
 
 // TODO: Use transactions!!! Current implementation is brittle since it does
@@ -286,7 +299,7 @@ func saveMembersInDB(orgname string, newMembers []Member) error {
 	}
 
 	membersMap := map[string]Member{}
-	members, err := getMembersFromDB(orgname, false)
+	members, err := GetMembersFromDB(orgname, false)
 	if err != nil {
 		return err
 	}
@@ -296,31 +309,31 @@ func saveMembersInDB(orgname string, newMembers []Member) error {
 	}
 
 	// remove existing members that are not in new list
-	for email, _ := range membersMap {
+	for email := range membersMap {
 		if _, ok := newMembersMap[email]; !ok {
 			delete(membersMap, email)
 		}
 	}
 
-	// update fields of existing member
-	for email, _ := range membersMap {
+	// update fields of existing member (if existing member changes name or metadata)
+	for email := range membersMap {
 		if _, ok := newMembersMap[email]; ok {
 			membersMap[email] = Member{
-				Organization: membersMap[email].Organization,
-				Email:        membersMap[email].Email,      // cannot be updated by user
-				PairCounts:   membersMap[email].PairCounts, // update later
-				Name:         newMembersMap[email].Name,
-				Metadata:     newMembersMap[email].Metadata,
+				Organization:  membersMap[email].Organization,
+				Email:         membersMap[email].Email,         // cannot be updated by user
+				LastRoundWith: membersMap[email].LastRoundWith, // update later
+				Name:          newMembersMap[email].Name,
+				Metadata:      newMembersMap[email].Metadata,
 			}
 		}
 	}
 
 	// update pair counts of existing members with new members
 	for email, member := range membersMap {
-		for newEmail, _ := range newMembersMap {
-			// if new email is not existing member, set the pair count to 0
-			if _, ok := member.PairCounts[newEmail]; !ok {
-				member.PairCounts[newEmail] = 0
+		for newEmail := range newMembersMap {
+			// if new email is not existing member
+			if _, ok := membersMap[newEmail]; !ok {
+				member.LastRoundWith[newEmail] = -1
 			}
 		}
 
@@ -328,22 +341,23 @@ func saveMembersInDB(orgname string, newMembers []Member) error {
 	}
 
 	// save new member
-	for email, _ := range newMembersMap {
+	for email := range newMembersMap {
 		if _, ok := membersMap[email]; !ok {
-			pairCounts := map[string]int{}
-			for otherEmail, _ := range newMembersMap {
+			lastRoundWith := map[string]int{}
+
+			for otherEmail := range newMembersMap {
 				if otherEmail == email {
 					continue
 				}
-				pairCounts[otherEmail] = 0
+				lastRoundWith[otherEmail] = -1
 			}
 
 			membersMap[email] = Member{
-				Organization: orgname,
-				Name:         newMembersMap[email].Name,
-				Email:        newMembersMap[email].Email,
-				Metadata:     newMembersMap[email].Metadata,
-				PairCounts:   pairCounts,
+				Organization:  orgname,
+				Name:          newMembersMap[email].Name,
+				Email:         newMembersMap[email].Email,
+				Metadata:      newMembersMap[email].Metadata,
+				LastRoundWith: lastRoundWith,
 			}
 		}
 	}
@@ -359,13 +373,14 @@ func saveMembersInDB(orgname string, newMembers []Member) error {
 			return err
 		}
 
-		pairCountsBytes, err := json.Marshal(member.PairCounts)
+		lastRoundWithBytes, err := json.Marshal(member.LastRoundWith)
 		if err != nil {
 			return err
 		}
 
+		// Add new member
 		if _, ok := existingMemberEmails[member.Email]; !ok {
-			columns := "(organization, email, name, metadata, pair_counts, active)"
+			columns := "(organization, email, name, metadata, last_round_with, active)"
 			placeholders := "($1, $2, $3, $4, $5, $6)"
 			_, err = db.Exec(
 				fmt.Sprintf(
@@ -377,19 +392,20 @@ func saveMembersInDB(orgname string, newMembers []Member) error {
 				member.Email,
 				member.Name,
 				server.JSONB(metadataBytes),
-				server.JSONB(pairCountsBytes),
+				server.JSONB(lastRoundWithBytes),
 				true,
 			)
 
 			if err != nil {
 				return err
 			}
+			// Update existing member
 		} else {
 			_, err = db.Exec(
-				"UPDATE members SET name = $1, metadata = $2, pair_counts = $3, active = $4 WHERE organization = $5 AND email = $6",
+				"UPDATE members SET name = $1, metadata = $2, last_round_with = $3, active = $4 WHERE organization = $5 AND email = $6",
 				member.Name,
 				server.JSONB(metadataBytes),
-				server.JSONB(pairCountsBytes),
+				server.JSONB(lastRoundWithBytes),
 				true,
 				orgname,
 				member.Email,
@@ -397,7 +413,8 @@ func saveMembersInDB(orgname string, newMembers []Member) error {
 		}
 	}
 
-	for email, _ := range existingMemberEmails {
+	// Deactivate member (note we don't delete member from the DB)
+	for email := range existingMemberEmails {
 		if _, ok := membersMap[email]; !ok {
 			_, err = db.Exec(
 				"UPDATE members SET active = $1 WHERE organization = $2 AND email = $3",
@@ -412,7 +429,7 @@ func saveMembersInDB(orgname string, newMembers []Member) error {
 }
 
 func getActiveMembersFromDBAsMap(orgname string) ([]MemberResponse, error) {
-	members, err := getMembersFromDB(orgname, true)
+	members, err := GetMembersFromDB(orgname, true)
 	if err != nil {
 		return []MemberResponse{}, err
 	}
@@ -429,7 +446,7 @@ func getActiveMembersFromDBAsMap(orgname string) ([]MemberResponse, error) {
 }
 
 func getActiveMembersFromDBInPairFormat(orgname string) ([]Member, error) {
-	members, err := getMembersFromDB(orgname, true)
+	members, err := GetMembersFromDB(orgname, true)
 	if err != nil {
 		return []Member{}, err
 	}
@@ -445,7 +462,8 @@ func getActiveMembersFromDBInPairFormat(orgname string) ([]Member, error) {
 	return pairMembers, nil
 }
 
-func getMembersFromDB(orgname string, onlyActive bool) ([]Member, error) {
+// GetMembersFromDB : Placeholder
+func GetMembersFromDB(orgname string, onlyActive bool) ([]Member, error) {
 	db, err := server.CreateDBConnection(LocalDBConnection)
 	defer db.Close()
 	if err != nil {
@@ -455,7 +473,7 @@ func getMembersFromDB(orgname string, onlyActive bool) ([]Member, error) {
 	members := []Member{}
 
 	rows, err := db.Query(
-		"SELECT organization, name, email, metadata, pair_counts, active FROM members WHERE organization = $1 ORDER BY name",
+		"SELECT organization, name, email, metadata, last_round_with, active FROM members WHERE organization = $1 ORDER BY name",
 		orgname,
 	)
 	if err != nil {
@@ -464,9 +482,9 @@ func getMembersFromDB(orgname string, onlyActive bool) ([]Member, error) {
 
 	for rows.Next() {
 		var organization, name, email string
-		var metadataJson, pairCountsJson server.JSONB
+		var metadataJSON, lastRoundWithJSON server.JSONB
 		var active bool
-		err := rows.Scan(&organization, &name, &email, &metadataJson, &pairCountsJson, &active)
+		err := rows.Scan(&organization, &name, &email, &metadataJSON, &lastRoundWithJSON, &active)
 		if err != nil {
 			return members, err
 		}
@@ -475,7 +493,7 @@ func getMembersFromDB(orgname string, onlyActive bool) ([]Member, error) {
 			continue
 		}
 
-		bytes, err := metadataJson.MarshalJSON()
+		bytes, err := metadataJSON.MarshalJSON()
 		if err != nil {
 			return members, err
 		}
@@ -486,23 +504,23 @@ func getMembersFromDB(orgname string, onlyActive bool) ([]Member, error) {
 			return members, err
 		}
 
-		bytes, err = pairCountsJson.MarshalJSON()
+		bytes, err = lastRoundWithJSON.MarshalJSON()
 		if err != nil {
 			return members, err
 		}
 
-		var pairCounts map[string]int
-		err = json.Unmarshal(bytes, &pairCounts)
+		var lastRoundWith map[string]int
+		err = json.Unmarshal(bytes, &lastRoundWith)
 		if err != nil {
 			return members, err
 		}
 
 		members = append(members, Member{
-			Organization: organization,
-			Name:         name,
-			Email:        email,
-			Metadata:     metadata,
-			PairCounts:   pairCounts,
+			Organization:  organization,
+			Name:          name,
+			Email:         email,
+			Metadata:      metadata,
+			LastRoundWith: lastRoundWith,
 		})
 	}
 

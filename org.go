@@ -11,20 +11,24 @@ import (
 	"github.com/johnamadeo/server"
 )
 
+// Organization :
 type Organization struct {
 	Name            string
 	Admin           string
 	CrossMatchTrait string
 }
 
+// CreateOrganizationRequestBody :
 type CreateOrganizationRequestBody struct {
 	Organization string `json:"org"`
 }
 
+// SetCrossMatchTraitRequestBody :
 type SetCrossMatchTraitRequestBody struct {
 	Trait string `json:"trait"`
 }
 
+// GetOrganizationsHandler : HTTP Handler for fetching all the organizations an admin manages
 func GetOrganizationsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" && r.Method != "" {
 		fmt.Println(r.Method + " Only GET requests are allowed at this route")
@@ -62,6 +66,7 @@ func GetOrganizationsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(bytes)
 }
 
+// CreateOrganizationHandler : HTTP handler for creating a new organization
 func CreateOrganizationHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -106,6 +111,7 @@ func CreateOrganizationHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(server.StrToBytes("Successfully created new organization"))
 }
 
+// CrossMatchTraitHandler : HTTP handler for changing or setting a cross match trait for an organization
 func CrossMatchTraitHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -147,6 +153,7 @@ func CrossMatchTraitHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(server.StrToBytes("Successfully set the cross match trait"))
 }
 
+// GetOrganizations :
 func getOrganizations(admin string) ([]string, error) {
 	db, err := server.CreateDBConnection(LocalDBConnection)
 	defer db.Close()
@@ -199,7 +206,8 @@ func createOrganization(name string, admin string) error {
 	return nil
 }
 
-func getCrossMatchTrait(orgname string) (string, error) {
+// GetCrossMatchTrait : Placeholder
+func GetCrossMatchTrait(orgname string) (string, error) {
 	db, err := server.CreateDBConnection(LocalDBConnection)
 	defer db.Close()
 	if err != nil {
@@ -214,9 +222,9 @@ func getCrossMatchTrait(orgname string) (string, error) {
 		return "", err
 	}
 
-	var crossMatchTraitSql sql.NullString
+	var crossMatchTraitSQL sql.NullString
 	for rows.Next() {
-		err := rows.Scan(&crossMatchTraitSql)
+		err := rows.Scan(&crossMatchTraitSQL)
 		if err != nil {
 			return "", err
 		}
@@ -224,8 +232,8 @@ func getCrossMatchTrait(orgname string) (string, error) {
 	}
 
 	crossMatchTrait := ""
-	if crossMatchTraitSql.Valid {
-		crossMatchTrait = crossMatchTraitSql.String
+	if crossMatchTraitSQL.Valid {
+		crossMatchTrait = crossMatchTraitSQL.String
 	}
 
 	return crossMatchTrait, nil

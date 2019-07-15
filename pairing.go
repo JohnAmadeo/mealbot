@@ -13,52 +13,46 @@ import (
 )
 
 const (
-	MaxTries  = 5
-	NumRounds = 6
-
-	EmailIntro   = "Your Mealbot group this week is:"
-	EmailFooter  = "Feel free to reply all in this thread for scheduling. I'm a robot, so I can only read 1's and 0's.\n\n Sent by your friendly neighborhood Mealbot! Learn more about me at https://mealbot-web.herokuapp.com"
+	// MaxTries is the max. number of times to attempt re-matching if a non-optimal matching is initially made
+	MaxTries = 50
+	// RecentRoundRange : max. no. of rounds between 2 pairings that is considered recent
+	RecentRoundRange = 5
+	// EmailIntro : Text to put in the beginning of the email body
+	EmailIntro = "Your Mealbot group this week is:"
+	// EmailFooter : Text to put at the end of the email body
+	EmailFooter = "Feel free to reply all in this thread for scheduling. I'm a robot, so I can only read 1's and 0's.\n\n Sent by your friendly neighborhood Mealbot! Learn more about me at https://mealbot-web.herokuapp.com"
+	// EmailSubject : Subject of the email
 	EmailSubject = "Your new Mealbot group"
 )
 
+// Pair :
 type Pair struct {
-	Id1     string
-	Id2     string
-	ExtraId string
+	ID1     string
+	ID2     string
+	ExtraID string
 }
 
+// NewPair :
 func NewPair(name1 string, name2 string) Pair {
 	if name1 < name2 {
 		return Pair{
-			Id1:     name1,
-			Id2:     name2,
-			ExtraId: "",
+			ID1:     name1,
+			ID2:     name2,
+			ExtraID: "",
 		}
-	} else {
-		return Pair{
-			Id1:     name2,
-			Id2:     name1,
-			ExtraId: "",
-		}
+	}
+	return Pair{
+		ID1:     name2,
+		ID2:     name1,
+		ExtraID: "",
 	}
 }
 
 func (p Pair) String() string {
-	if p.ExtraId == "" {
-		return fmt.Sprintf("%-30s %-30s", p.Id1, p.Id2)
-	} else {
-		return fmt.Sprintf("%-30s %-30s %-30s", p.Id1, p.Id2, p.ExtraId)
-	}
+	return fmt.Sprintf("%-40s %-40s %-40s", p.ID1, p.ID2, p.ExtraID)
 }
 
-func (p *Pair) AddExtraPerson(id string) error {
-	if p.ExtraId != "" {
-		return errors.New("Pair already has a 3rd person!")
-	}
-	p.ExtraId = id
-	return nil
-}
-
+// Round : Data structure for storing info on one round of pairings between members
 type Round struct {
 	Number           int
 	Pairs            map[Pair]bool
@@ -66,6 +60,7 @@ type Round struct {
 	DrawOrderedPairs []Pair // for logging; keeps order in which pairs were made
 }
 
+// NewRound :
 func NewRound(roundNumber int) Round {
 	return Round{
 		Number:           roundNumber,
@@ -75,76 +70,21 @@ func NewRound(roundNumber int) Round {
 	}
 }
 
-func (r *Round) AddPair(student1 string, student2 string) {
-	r.Paired[student1] = true
-	r.Paired[student2] = true
+// AddPair : Record a new pairing made during the round
+func (r *Round) AddPair(member1 string, member2 string) {
+	r.Paired[member1] = true
+	r.Paired[member2] = true
 
-	pair := NewPair(student1, student2)
+	pair := NewPair(member1, member2)
 	r.Pairs[pair] = true
 
 	r.DrawOrderedPairs = append(r.DrawOrderedPairs, pair)
 }
 
-func (r Round) IsPaired(student string) bool {
-	if _, ok := r.Paired[student]; ok {
-		return true
-	}
-	return false
-}
-
-func (r Round) GetPairForExtraStudent(student Student) (Pair, error) {
-	if len(r.Pairs) == 0 {
-		return Pair{}, errors.New("No pair of 2 people can be found this round")
-	}
-
-	selectedPair := Pair{}
-	// Pick random pair as fallback
-	for pair, _ := range r.Pairs {
-		if pair.ExtraId != "" {
-			continue
-		}
-		selectedPair = pair
-		break
-	}
-
-	// Pick a pair that contains someone the extra student is least-paired w/
-	minCount := r.Number + 1
-	for _, partnerId := range student.PartnerIds {
-		if student.PairCounts[partnerId] < minCount {
-			minCount = student.PairCounts[partnerId]
-		}
-	}
-
-	for pair, _ := range r.Pairs {
-		id1Pairs := student.PairCounts[pair.Id1]
-		id2Pairs := student.PairCounts[pair.Id2]
-		if id1Pairs == minCount && id2Pairs == minCount {
-			selectedPair = pair
-			break
-		}
-	}
-
-	return selectedPair, nil
-
-}
-
-func (r Round) AddExtraStudentToPair(pair Pair, studentId string) error {
-	if _, ok := r.Pairs[pair]; !ok {
-		return errors.New("Specified pair does not exist in the round")
-	}
-
-	for i, currPair := range r.DrawOrderedPairs {
-		if currPair == pair {
-			r.DrawOrderedPairs[i].AddExtraPerson(studentId)
-		}
-	}
-
-	delete(r.Pairs, pair)
-	pair.AddExtraPerson(studentId)
-	r.Pairs[pair] = true
-	r.Paired[studentId] = true
-
-	return nil
+// IsPaired : Check if member has already been paired this round
+func (r Round) IsPaired(member string) bool {
+	_, ok := r.Paired[member]
+	return ok
 }
 
 func (r Round) String() string {
@@ -158,186 +98,124 @@ func (r Round) String() string {
 	return header + strings.Join(pairs, "\n") + "\n"
 }
 
-type Student struct {
-	Id         string
-	Name       string
-	Trait      string
-	PartnerIds []string // list of ideal partners
-	BackupIds  []string // list of backups
-	PairCounts map[string]int
+// MinimalMember : A pared down version of the Member struct (see members.go) for the pairing process
+type MinimalMember struct {
+	ID            string
+	Name          string
+	Trait         string
+	LastRoundWith map[string]int
 }
 
-type StudentMap map[string]Student
+// MembersMap :
+type MembersMap map[string]MinimalMember
 
-func (sm *StudentMap) AddPair(studentId string, partnerId string) int {
-	repeats := 0
-	if (*sm)[studentId].PairCounts[partnerId] > 0 {
-		fmt.Printf("REPEAT: %s %s\n", studentId, partnerId)
-		repeats += 1
-	}
-
-	(*sm)[studentId].PairCounts[partnerId] += 1
-	(*sm)[partnerId].PairCounts[studentId] += 1
-
-	return repeats
+// UpdateLastRoundWith : Updates the last round 2 members were matched with each other
+func (mm *MembersMap) UpdateLastRoundWith(id1 string, id2 string, roundNum int) {
+	(*mm)[id1].LastRoundWith[id2] = roundNum
+	(*mm)[id2].LastRoundWith[id1] = roundNum
 }
 
-func (sm *StudentMap) AddExtraStudentToPair(pair Pair, studentId string) int {
-	repeats := 0
+func (mm MembersMap) String() string {
+	str := "X's last round with Y\n"
+	for memberID := range mm {
+		str += fmt.Sprintf("%s\n", memberID)
 
-	if (*sm)[pair.Id1].PairCounts[studentId] > 0 {
-		fmt.Printf("REPEAT: %s %s\n", studentId, pair.Id1)
-		repeats += 1
-	}
-
-	if (*sm)[pair.Id2].PairCounts[studentId] > 0 {
-		fmt.Printf("REPEAT: %s %s\n", studentId, pair.Id2)
-		repeats += 1
-	}
-
-	(*sm)[pair.Id1].PairCounts[studentId] += 1
-	(*sm)[pair.Id2].PairCounts[studentId] += 1
-	(*sm)[studentId].PairCounts[pair.Id1] += 1
-	(*sm)[studentId].PairCounts[pair.Id2] += 1
-
-	return repeats
-}
-
-func (sm StudentMap) String() string {
-	str := ""
-	for studentId, _ := range sm {
-		str += fmt.Sprintf("%s\n", studentId)
-
-		str += "Partners:\n"
-		for _, partnerId := range sm[studentId].PartnerIds {
-			str += fmt.Sprintf("%s ", partnerId)
-		}
-		str += "\n"
-
-		str += "Backups:\n"
-		for _, backupId := range sm[studentId].BackupIds {
-			str += fmt.Sprintf("%s ", backupId)
-		}
-		str += "\n"
-
-		for partnerId, count := range sm[studentId].PairCounts {
-			str += fmt.Sprintf("\t%-30s : %d\n", partnerId, count)
+		for partnerID, lastRound := range mm[memberID].LastRoundWith {
+			str += fmt.Sprintf("\t%-30s : %d\n", partnerID, lastRound)
 		}
 		str += "\n"
 	}
 	return str
 }
 
-func (sm StudentMap) Repeats() (map[Pair]bool, int) {
-	repeats := map[Pair]bool{}
-	for _, student := range sm {
-		for partnerId, count := range student.PairCounts {
-			if count > 1 {
-				repeats[NewPair(student.Id, partnerId)] = true
-			}
-		}
-	}
-	return repeats, len(repeats) / 2
-}
-
-type Partner struct {
-	Id        string
-	PairCount int
-}
-
-type Partners []Partner
-
-func (p Partners) Len() int           { return len(p) }
-func (p Partners) Less(i, j int) bool { return p[i].PairCount < p[j].PairCount }
-func (p Partners) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
 func runPairingRound(orgname string, roundNum int, testMode bool) error {
-	students, err := getStudentsFromDB(orgname)
+	members, err := getMinimalMembersFromDB(orgname)
 	if err != nil {
 		return err
 	}
 
-	studentIds := []string{}
-	for id, _ := range students {
-		studentIds = append(studentIds, id)
+	memberIds := []string{}
+	for id := range members {
+		memberIds = append(memberIds, id)
 	}
 
 	tries := 0
 	var round Round
 	// retry until a) a round w/o repeats is found, or b) MaxTries is reached
 	for {
-		studentBytes, _ := json.Marshal(students)
-		var tempStudents StudentMap
-		json.Unmarshal(studentBytes, &tempStudents)
+		// Make a deep copy of the members map
+		bytes, _ := json.Marshal(members)
+		var tempMembers MembersMap
+		json.Unmarshal(bytes, &tempMembers)
 
 		round = NewRound(roundNum)
-		numRepeats := 0
+		numRecentMatches := 0
 
-		// hold out odd student out and add it back in at the end of round
-		extraStudentId := ""
-		if len(tempStudents)%2 == 1 {
-			extraStudentId = studentIds[rand.Intn(len(studentIds))]
+		// hold out odd member out and add it back in at the end of round
+		var extraMemberID string
+		if len(tempMembers)%2 == 1 {
+			extraMemberID = memberIds[rand.Intn(len(memberIds))]
 		}
 
-		for _, studentId := range studentIds {
-			if round.IsPaired(studentId) || studentId == extraStudentId {
+		for _, memberID := range memberIds {
+			if round.IsPaired(memberID) || memberID == extraMemberID {
 				continue
 			}
 
-			partners := []Partner{}
-			student := tempStudents[studentId]
+			member := tempMembers[memberID]
 
-			findUnpairedPartners(&partners, student, round, extraStudentId)
-			if len(partners) == 0 {
-				findBackupPartners(&partners, student, round, extraStudentId)
+			var goodCandidates, okCandidates, badCandidates []MinimalMember
+			for candidateID, lastRound := range member.LastRoundWith {
+				if round.IsPaired(candidateID) || candidateID == extraMemberID {
+					continue
+				}
+
+				notRecentlyMatched := lastRound == -1 || round.Number-lastRound > RecentRoundRange
+				hasDifferentTraits := member.Trait == members[candidateID].Trait
+
+				switch {
+				case notRecentlyMatched && hasDifferentTraits:
+					goodCandidates = append(goodCandidates, members[candidateID])
+				case notRecentlyMatched && !hasDifferentTraits:
+					okCandidates = append(okCandidates, members[candidateID])
+				default:
+					badCandidates = append(badCandidates, members[candidateID])
+				}
 			}
-			findLeastPairedPartners(&partners, round)
 
-			partnerId := selectRandomPartner(partners).Id
+			var partner MinimalMember
+			switch {
+			case len(goodCandidates) > 0:
+				partner = selectRandomPartner(goodCandidates)
+			case len(okCandidates) > 0:
+				partner = selectRandomPartner(okCandidates)
+			default:
+				partner = selectRandomPartner(badCandidates)
+				numRecentMatches++
+			}
 
-			round.AddPair(studentId, partnerId)
-			numRepeats += tempStudents.AddPair(studentId, partnerId)
+			round.AddPair(memberID, partner.ID)
+			tempMembers.UpdateLastRoundWith(memberID, partner.ID, round.Number)
 		}
 
-		if extraStudentId != "" {
-			pair, _ := round.GetPairForExtraStudent(
-				tempStudents[extraStudentId],
-			)
-			round.AddExtraStudentToPair(pair, extraStudentId)
-			numRepeats += tempStudents.AddExtraStudentToPair(
-				pair,
-				extraStudentId,
-			)
-		}
+		tries++
 
-		tries += 1
-
-		if numRepeats == 0 || tries == MaxTries {
-			students = tempStudents
+		if numRecentMatches == 0 || tries == MaxTries {
+			members = tempMembers
 			fmt.Println(round)
-			fmt.Printf("%d repeats\n", numRepeats)
+			fmt.Printf("%d recent matches\n", numRecentMatches)
 			break
 		}
 	}
 
-	for pair, _ := range round.Pairs {
-		toEmails := []string{pair.Id1, pair.Id2}
-		toNames := []string{students[pair.Id1].Name, students[pair.Id2].Name}
-
-		if pair.ExtraId != "" {
-			toEmails = append(toEmails, pair.ExtraId)
-			toNames = append(toNames, students[pair.ExtraId].Name)
-		}
-
-		if !testMode {
-			err := sendEmails(orgname, toEmails, toNames)
-			if err != nil {
-				return err
-			}
+	if !testMode {
+		err = sendEmails(orgname, round, members)
+		if err != nil {
+			return err
 		}
 	}
 
-	err = saveRoundInDB(round, students, orgname)
+	err = saveRoundInDB(round, members, orgname)
 	if err != nil {
 		return err
 	}
@@ -345,133 +223,71 @@ func runPairingRound(orgname string, roundNum int, testMode bool) error {
 	return nil
 }
 
-func findUnpairedPartners(
-	partners *[]Partner,
-	student Student,
-	round Round,
-	extraStudentId string,
-) {
-	for _, partnerId := range student.PartnerIds {
-		if round.IsPaired(partnerId) || partnerId == extraStudentId {
-			continue
-		}
+func sendEmails(orgname string, round Round, members MembersMap) error {
+	for pair := range round.Pairs {
+		toEmails := []string{pair.ID1, pair.ID2}
+		toNames := []string{members[pair.ID1].Name, members[pair.ID2].Name}
 
-		*partners = append(*partners, Partner{
-			Id:        partnerId,
-			PairCount: student.PairCounts[partnerId],
-		})
-	}
-}
-
-func findBackupPartners(
-	partners *[]Partner,
-	student Student,
-	round Round,
-	extraStudentId string,
-) {
-	for _, partnerId := range student.BackupIds {
-		if student.Id == partnerId ||
-			round.IsPaired(partnerId) ||
-			partnerId == extraStudentId {
-			continue
-		}
-
-		*partners = append(*partners, Partner{
-			Id:        partnerId,
-			PairCount: student.PairCounts[partnerId],
-		})
-	}
-	rand.Shuffle(len(*partners), Partners(*partners).Swap)
-}
-
-func findLeastPairedPartners(partners *[]Partner, round Round) {
-	minPairs := round.Number + 1
-	for _, partner := range *partners {
-		if partner.PairCount < minPairs {
-			minPairs = partner.PairCount
+		err := sendEmail(orgname, toEmails, toNames)
+		if err != nil {
+			return err
 		}
 	}
-	leastPairedPartners := []Partner{}
-	for _, partner := range *partners {
-		if partner.PairCount == minPairs {
-			leastPairedPartners = append(leastPairedPartners, partner)
-		}
-	}
-	*partners = leastPairedPartners
+
+	return nil
 }
 
-func selectRandomPartner(partners []Partner) Partner {
-	return partners[rand.Intn(len(partners))]
+func selectRandomPartner(members []MinimalMember) MinimalMember {
+	return members[rand.Intn(len(members))]
 }
 
-func getStudentsFromDB(orgname string) (StudentMap, error) {
-	crossMatchTrait, err := getCrossMatchTrait(orgname)
+func getMinimalMembersFromDB(orgname string) (MembersMap, error) {
+	crossMatchTrait, err := GetCrossMatchTrait(orgname)
 	if err != nil {
-		return StudentMap{}, err
+		return MembersMap{}, err
 	}
 
 	db, err := server.CreateDBConnection(LocalDBConnection)
 	defer db.Close()
 	if err != nil {
-		return StudentMap{}, err
+		return MembersMap{}, err
 	}
 
-	students := StudentMap{}
-	members, err := getMembersFromDB(orgname, true)
+	minimalMembers := MembersMap{}
+	members, err := GetMembersFromDB(orgname, true)
 	if err != nil {
-		return StudentMap{}, err
+		return MembersMap{}, err
 	}
 
 	for _, member := range members {
-		students[member.Email] = Student{
-			Id:         member.Email,
-			Name:       member.Name,
-			Trait:      member.Metadata[crossMatchTrait],
-			PartnerIds: []string{},
-			BackupIds:  []string{},
-			PairCounts: member.PairCounts,
+		minimalMembers[member.Email] = MinimalMember{
+			ID:            member.Email,
+			Name:          member.Name,
+			Trait:         member.Metadata[crossMatchTrait],
+			LastRoundWith: member.LastRoundWith,
 		}
 	}
 
-	for i, student := range students {
-		partnerIds := []string{}
-		backupIds := []string{}
-		for j, _ := range students {
-			if i == j {
-				continue
-			}
-
-			if students[i].Trait != students[j].Trait {
-				partnerIds = append(partnerIds, students[j].Id)
-			} else {
-				backupIds = append(backupIds, students[j].Id)
-			}
-		}
-		student.PartnerIds = partnerIds
-		student.BackupIds = backupIds
-		students[i] = student
-	}
-
-	return students, nil
+	return minimalMembers, nil
 }
 
-func saveRoundInDB(round Round, students StudentMap, orgname string) error {
+func saveRoundInDB(round Round, members MembersMap, orgname string) error {
 	db, err := server.CreateDBConnection(LocalDBConnection)
 	defer db.Close()
 	if err != nil {
 		return err
 	}
 
-	for pair, _ := range round.Pairs {
+	for pair := range round.Pairs {
 		columns := "(organization, id1, id2, extraId, round)"
 		placeholder := "($1, $2, $3, $4, $5)"
 
 		_, err := db.Exec(
 			fmt.Sprintf("INSERT INTO pairs %s VALUES %s", columns, placeholder),
 			orgname,
-			pair.Id1,
-			pair.Id2,
-			pair.ExtraId,
+			pair.ID1,
+			pair.ID2,
+			pair.ExtraID,
 			round.Number,
 		)
 
@@ -480,17 +296,17 @@ func saveRoundInDB(round Round, students StudentMap, orgname string) error {
 		}
 	}
 
-	for _, student := range students {
-		bytes, err := json.Marshal(student.PairCounts)
+	for _, member := range members {
+		bytes, err := json.Marshal(member.LastRoundWith)
 		if err != nil {
 			return err
 		}
 
 		_, err = db.Exec(
-			"UPDATE members SET pair_counts = $1 WHERE organization = $2 AND email = $3",
+			"UPDATE members SET last_round_with = $1 WHERE organization = $2 AND email = $3",
 			server.JSONB(bytes),
 			orgname,
-			student.Id,
+			member.ID,
 		)
 		if err != nil {
 			return err
@@ -510,7 +326,7 @@ func saveRoundInDB(round Round, students StudentMap, orgname string) error {
 	return nil
 }
 
-func sendEmails(orgname string, toEmails []string, toNames []string) error {
+func sendEmail(orgname string, toEmails []string, toNames []string) error {
 	smtpAddress, ok := os.LookupEnv("MAILGUN_SMTP_LOGIN")
 	if !ok {
 		return errors.New("environment variable MAILGUN_SMTP_LOGIN not set")
@@ -539,12 +355,6 @@ func sendEmails(orgname string, toEmails []string, toNames []string) error {
 		text,
 		toEmails...,
 	)
-
-	// ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	// defer cancel()
-	//
-	// // Send the message	with a 10 second timeout
-	// _, _, err := mg.Send(ctx, message)
 
 	_, _, err := mg.Send(message)
 

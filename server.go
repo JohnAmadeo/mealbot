@@ -7,10 +7,12 @@ import (
 	"os"
 )
 
+// Middleware class
 type Middleware struct {
 	MiddlewareHandlers [](func(handler http.Handler) http.Handler)
 }
 
+// Apply : Create a handler where the core handler is wrapped by middleware handlers
 func (mw *Middleware) Apply(
 	coreHandler func(w http.ResponseWriter, r *http.Request),
 ) http.Handler {
@@ -22,6 +24,7 @@ func (mw *Middleware) Apply(
 	return handler
 }
 
+// ApplyFake :
 func (mw Middleware) ApplyFake(
 	coreHandler func(w http.ResponseWriter, r *http.Request),
 ) http.Handler {
@@ -34,71 +37,45 @@ func runTestSequence(testMode bool) {
 		fmt.Println(err)
 	}
 
-	_, err = createMembersFromCSV("ysc", "./csv/test_john.csv")
+	_, err = createMembersFromCSV("ysc", "./csv/ysc.csv")
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 
-	err = createOrganization("test", "johnamadeo.daniswara@yale.edu")
-	if err != nil {
-		fmt.Println(err)
-	}
+	i := 0
+	for i < 10 {
+		err = addRound("ysc", fmt.Sprintf("2019-01-02 %d:55:00", i))
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		// actually send out emails!
+		err = runPairingRound("ysc", i, testMode)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 
-	_, err = createMembersFromCSV("test", "./csv/test_john.csv")
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	err = addRound("test", "2019-01-02 15:55:00")
-	if err != nil {
-		fmt.Println(err)
-	}
-	// actually send out emails!
-	err = runPairingRound("test", 0, testMode)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	_, err = createMembersFromCSV("test", "./csv/test_john2.csv")
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	err = addRound("test", "2019-01-02 19:55:00")
-	if err != nil {
-		fmt.Println(err)
-	}
-	// actually send out emails!
-	err = runPairingRound("test", 1, testMode)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	_, err = createMembersFromCSV("test", "./csv/test_john3.csv")
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	err = addRound("test", "2019-01-02 20:55:00")
-	if err != nil {
-		fmt.Println(err)
-	}
-	// actually send out emails!
-	err = runPairingRound("test", 2, testMode)
-	if err != nil {
-		fmt.Println(err)
+		i++
 	}
 }
 
 func main() {
 	args := os.Args
-	if len(args) == 2 && args[1] == "pair" {
-		// runTestSequence()
-		err := runPairingScheduler(false)
-		if err != nil {
-			fmt.Println(err)
+	if len(args) == 2 {
+		if args[1] == "pair" {
+			// runTestSequence(true)
+			err := runPairingScheduler(false)
+			if err != nil {
+				fmt.Println(err)
+			}
+			return
 		}
-		return
+		if args[1] == "migrate" {
+			createLastRoundWithFromPairCounts()		
+			return
+		}
 	}
 
 	mw := Middleware{

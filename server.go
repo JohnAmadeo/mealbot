@@ -37,20 +37,21 @@ func runTestSequence(testMode bool) {
 		fmt.Println(err)
 	}
 
-	_, err = createMembersFromCSV("ysc", "./csv/ysc.csv")
+	_, err = createMembersFromCSV("ysc", "./csv/test_john3.csv")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
 	i := 0
-	for i < 10 {
+	for i < 2 {
 		err = addRound("ysc", fmt.Sprintf("2019-01-02 %d:55:00", i))
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		// actually send out emails!
+
+		// NOTE: Do you want to actually send out emails?
 		err = runPairingRound("ysc", i, testMode)
 		if err != nil {
 			fmt.Println(err)

@@ -128,6 +128,7 @@ func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 	orgname, err := getQueryParam(r, "org")
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		fmt.Println(err)
 		w.Write(server.ErrToBytes(err))
 		return
 	}
@@ -135,6 +136,7 @@ func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 	err = r.ParseMultipartForm(MaxMemory)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		fmt.Println(err)
 		w.Write(server.ErrToBytes(err))
 		return
 	}
@@ -142,6 +144,7 @@ func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 	formFile, handler, err := r.FormFile("members")
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		fmt.Println(err)
 		w.Write(server.ErrToBytes(err))
 		return
 	}
@@ -153,6 +156,7 @@ func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 	file, err := os.OpenFile(filename, FileFlag, ReadWritePermissions)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println(err)
 		w.Write(server.ErrToBytes(err))
 		return
 	}
@@ -161,6 +165,7 @@ func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 	_, err = io.Copy(file, formFile)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println(err)
 		w.Write(server.ErrToBytes(err))
 		return
 	}
@@ -168,6 +173,7 @@ func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 	members, err := createMembersFromCSV(orgname, filename)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println(err)
 		w.Write(server.ErrToBytes(err))
 		return
 	}
@@ -187,6 +193,7 @@ func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 	bytes, err := json.Marshal(resp)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println(err)
 		w.Write(server.ErrToBytes(err))
 		return
 	}

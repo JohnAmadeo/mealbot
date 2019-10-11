@@ -114,22 +114,19 @@ func CreateOrganizationHandler(w http.ResponseWriter, r *http.Request) {
 // CrossMatchTraitHandler : HTTP handler for changing or setting a cross match trait for an organization
 func CrossMatchTraitHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write(server.StrToBytes("Only POST requests are allowed at this route"))
+		PrintAndWriteErr(w, errors.New("Only POST requests are allowed at this route"), http.StatusMethodNotAllowed)
 		return
 	}
 
 	orgname, err := getQueryParam(r, "org")
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusBadRequest)
 		return
 	}
 
 	bytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(server.StrToBytes("Malformed body."))
+		PrintAndWriteErr(w, errors.New("Malformed body."), http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
@@ -137,8 +134,7 @@ func CrossMatchTraitHandler(w http.ResponseWriter, r *http.Request) {
 	var body SetCrossMatchTraitRequestBody
 	err = json.Unmarshal(bytes, &body)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(server.StrToBytes("Request body is malformed"))
+		PrintAndWriteErr(w, errors.New("Request body is malformed"), http.StatusBadRequest)
 		return
 	}
 
@@ -149,8 +145,7 @@ func CrossMatchTraitHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	w.Write(server.StrToBytes("Successfully set the cross match trait"))
+	PrintAndWrite(w, server.StrToBytes("Successfully set the cross match trait"), http.StatusCreated)
 }
 
 // GetOrganizations :

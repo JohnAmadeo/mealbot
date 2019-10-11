@@ -108,8 +108,7 @@ func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(bytes)
+	PrintAndWrite(w, bytes, http.StatusOK)
 }
 
 // TODO: The problem is here!

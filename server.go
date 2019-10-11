@@ -72,8 +72,8 @@ func PrintAndWriteErr(w http.ResponseWriter, err error, status int) {
 	w.Write(server.ErrToBytes(err))
 }
 
-func PrintAndWrite(w http.ResponseWriter, bytes []byte) {
-	log.Info(http.StatusOK)
+func PrintAndWrite(w http.ResponseWriter, bytes []byte, status int) {
+	log.Info(status)
 	w.Write(bytes)
 }
 

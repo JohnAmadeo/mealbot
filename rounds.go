@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -55,34 +55,37 @@ func AddRoundHandler(w http.ResponseWriter, r *http.Request) {
 
 // GetRoundsHandler : HTTP handler for retrieving the dates for all rounds scheduled
 func GetRoundsHandler(w http.ResponseWriter, r *http.Request) {
+	function := "GetRoundsHandler"
 	if r.Method != "GET" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		fmt.Println(server.StrToBytes("Only GET requests are allowed at this route"))
-		w.Write(server.StrToBytes("Only GET requests are allowed at this route"))
+		PrintAndWriteErr(
+			w,
+			errors.New("Only GET requests are allowed at this route"),
+			http.StatusMethodNotAllowed,
+			function,
+		)
 		return
 	}
 
 	orgname, err := getQueryParam(r, "org")
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusBadRequest)
+		PrintAndWriteErr(w, err, http.StatusBadRequest, function)
 		return
 	}
 
 	rounds, err := getRoundsFromDB(orgname)
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusInternalServerError)
+		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
 		return
 	}
 
 	resp := GetRoundsResponse{Rounds: rounds}
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusInternalServerError)
+		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(bytes)
+	PrintAndWrite(w, bytes, http.StatusOK, function)
 }
 
 // RoundHandler : Combined HTTP handler for rounds

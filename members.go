@@ -62,20 +62,26 @@ func MembersHandler(w http.ResponseWriter, r *http.Request) {
 
 // GetMembersHandler : HTTP handler for retrieving members
 func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
+	function := "GetMembersHandler"
 	if r.Method != "GET" {
-		PrintAndWriteErr(w, errors.New("Only GET requests are allowed at this route"), http.StatusMethodNotAllowed)
+		PrintAndWriteErr(
+			w,
+			errors.New("Only GET requests are allowed at this route"),
+			http.StatusMethodNotAllowed,
+			function,
+		)
 		return
 	}
 
 	orgname, err := getQueryParam(r, "org")
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusBadRequest)
+		PrintAndWriteErr(w, err, http.StatusBadRequest, function)
 		return
 	}
 
 	members, err := getActiveMembersFromDBAsMap(orgname)
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusInternalServerError)
+		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
 		return
 	}
 
@@ -90,7 +96,7 @@ func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
 
 	crossMatchTrait, err := GetCrossMatchTrait(orgname)
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusInternalServerError)
+		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
 		return
 	}
 
@@ -104,11 +110,11 @@ func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
 
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusInternalServerError)
+		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
 		return
 	}
 
-	PrintAndWrite(w, bytes, http.StatusOK)
+	PrintAndWrite(w, bytes, http.StatusOK, function)
 }
 
 // TODO: The problem is here!

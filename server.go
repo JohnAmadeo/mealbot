@@ -64,16 +64,19 @@ func runTestSequence(testMode bool) {
 	}
 }
 
-func PrintAndWriteErr(w http.ResponseWriter, err error, status int) {
+func PrintAndWriteErr(w http.ResponseWriter, err error, status int, function string) {
 	log.WithFields(log.Fields{
-		"status": status,
+		"status":   status,
+		"function": function,
 	}).Error(err)
 	w.WriteHeader(status)
 	w.Write(server.ErrToBytes(err))
 }
 
-func PrintAndWrite(w http.ResponseWriter, bytes []byte, status int) {
-	log.Info(status)
+func PrintAndWrite(w http.ResponseWriter, bytes []byte, status int, function string) {
+	log.WithFields(log.Fields{
+		"function": function,
+	}).Info(status)
 	w.Write(bytes)
 }
 
@@ -121,6 +124,5 @@ func main() {
 		port = "8080"
 	}
 
-	log.SetReportCaller(true)
 	log.Fatal(http.ListenAndServe(":"+port, serveMux))
 }

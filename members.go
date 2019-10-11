@@ -70,15 +70,13 @@ func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
 
 	orgname, err := getQueryParam(r, "org")
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusBadRequest)
 		return
 	}
 
 	members, err := getActiveMembersFromDBAsMap(orgname)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -93,8 +91,7 @@ func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
 
 	crossMatchTrait, err := GetCrossMatchTrait(orgname)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -108,8 +105,7 @@ func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
 
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -117,6 +113,7 @@ func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(bytes)
 }
 
+// TODO: The problem is here!
 // CreateMembersHandler : HTTP handler for creating members
 func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {

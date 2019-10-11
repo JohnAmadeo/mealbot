@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/johnamadeo/server"
@@ -23,22 +24,19 @@ type GetPairsResponse struct {
 // GetPairsHandler : HTTP Handler for getting pairings for an organization
 func GetPairsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write(server.StrToBytes("Only GET requests are allowed at this route"))
+		PrintAndWriteErr(w, errors.New("Only GET requests are allowed at this route"), http.StatusMethodNotAllowed)
 		return
 	}
 
 	orgname, err := getQueryParam(r, "org")
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusBadRequest)
 		return
 	}
 
 	roundPairs, err := getPairsFromDB(orgname)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -48,8 +46,7 @@ func GetPairsHandler(w http.ResponseWriter, r *http.Request) {
 
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusInternalServerError)
 		return
 	}
 

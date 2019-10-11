@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -56,29 +57,27 @@ func AddRoundHandler(w http.ResponseWriter, r *http.Request) {
 func GetRoundsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
+		fmt.Println(server.StrToBytes("Only GET requests are allowed at this route"))
 		w.Write(server.StrToBytes("Only GET requests are allowed at this route"))
 		return
 	}
 
 	orgname, err := getQueryParam(r, "org")
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusBadRequest)
 		return
 	}
 
 	rounds, err := getRoundsFromDB(orgname)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusInternalServerError)
 		return
 	}
 
 	resp := GetRoundsResponse{Rounds: rounds}
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusInternalServerError)
 		return
 	}
 

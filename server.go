@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
+
+	"github.com/johnamadeo/server"
+	log "github.com/sirupsen/logrus"
 )
 
 // Middleware class
@@ -62,6 +64,19 @@ func runTestSequence(testMode bool) {
 	}
 }
 
+func PrintAndWriteErr(w http.ResponseWriter, err error, status int) {
+	log.WithFields(log.Fields{
+		"status": status,
+	}).Error(err)
+	w.WriteHeader(status)
+	w.Write(server.ErrToBytes(err))
+}
+
+func PrintAndWrite(w http.ResponseWriter, bytes []byte) {
+	log.Info(http.StatusOK)
+	w.Write(bytes)
+}
+
 func main() {
 	args := os.Args
 	if len(args) == 2 {
@@ -99,12 +114,13 @@ func main() {
 	serveMux.Handle("/rounds", mw.Apply(GetRoundsHandler))
 	serveMux.Handle("/round", mw.Apply(RoundHandler))
 	serveMux.Handle("/pairs", mw.Apply(GetPairsHandler))
-	serveMux.Handle("/", http.FileServer(http.Dir("./static")))
+	// serveMux.Handle("/", http.FileServer(http.Dir("./static")))
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
+	log.SetReportCaller(true)
 	log.Fatal(http.ListenAndServe(":"+port, serveMux))
 }

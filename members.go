@@ -63,8 +63,7 @@ func MembersHandler(w http.ResponseWriter, r *http.Request) {
 // GetMembersHandler : HTTP handler for retrieving members
 func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write(server.StrToBytes("Only GET requests are allowed at this route"))
+		PrintAndWriteErr(w, errors.New("Only GET requests are allowed at this route"), http.StatusMethodNotAllowed)
 		return
 	}
 

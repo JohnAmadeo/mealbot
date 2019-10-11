@@ -11,7 +11,7 @@
 - NOTE: If the steps above for the database aren't super clear, please check out official Postgres documentation. For help on SQL syntax, check out [PostgreSQL Tutorial](http://www.postgresqltutorial.com/)
 
 ## Go 
-- Build the project ('go build')
+- Build the project ('go build ./')
 - Run the executable ('./mealbot' or './mealbot pair')
 
 # Miscellanea

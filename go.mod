@@ -13,4 +13,7 @@ require (
 	github.com/mailgun/mailgun-go v2.0.0+incompatible
 	github.com/pkg/errors v0.8.0
 	github.com/rogpeppe/go-internal v1.0.0
+	github.com/sirupsen/logrus v1.4.2
 )
+
+go 1.13

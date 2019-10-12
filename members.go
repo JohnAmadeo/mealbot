@@ -120,33 +120,32 @@ func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
 // TODO: The problem is here!
 // CreateMembersHandler : HTTP handler for creating members
 func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
+	function := "CreateMembersHandler"
 	if r.Method != "POST" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write(server.StrToBytes("Only POST requests are allowed at this route"))
+		PrintAndWriteErr(
+			w,
+			errors.New("Only POST requests are allowed at this route"),
+			http.StatusMethodNotAllowed,
+			function,
+		)
 		return
 	}
 
 	orgname, err := getQueryParam(r, "org")
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Println(err)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusBadRequest, function)
 		return
 	}
 
 	err = r.ParseMultipartForm(MaxMemory)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Println(err)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusBadRequest, function)
 		return
 	}
 
 	formFile, handler, err := r.FormFile("members")
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Println(err)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusBadRequest, function)
 		return
 	}
 
@@ -156,26 +155,20 @@ func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 
 	file, err := os.OpenFile(filename, FileFlag, ReadWritePermissions)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Println(err)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
 		return
 	}
 	defer file.Close()
 
 	_, err = io.Copy(file, formFile)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Println(err)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
 		return
 	}
 
 	members, err := createMembersFromCSV(orgname, filename)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Println(err)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
 		return
 	}
 
@@ -193,14 +186,11 @@ func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Println(err)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	w.Write(bytes)
+	PrintAndWrite(w, bytes, http.StatusCreated, function)
 }
 
 // isValidFormatCSV :

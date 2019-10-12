@@ -66,6 +66,7 @@ func runTestSequence(testMode bool) {
 
 func PrintAndWriteErr(w http.ResponseWriter, err error, status int, function string) {
 	log.WithFields(log.Fields{
+		"logger":   "logrus",
 		"status":   status,
 		"function": function,
 	}).Error(err)
@@ -75,8 +76,9 @@ func PrintAndWriteErr(w http.ResponseWriter, err error, status int, function str
 
 func PrintAndWrite(w http.ResponseWriter, bytes []byte, status int, function string) {
 	log.WithFields(log.Fields{
+		"logger":   "logrus",
 		"function": function,
-	}).Info(status)
+	}).Debug(status)
 	w.Write(bytes)
 }
 

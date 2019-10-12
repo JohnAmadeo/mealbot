@@ -25,17 +25,21 @@ type GetRoundsResponse struct {
 
 // AddRoundHandler : HTTP handler for scheduling a new round on a certain date
 func AddRoundHandler(w http.ResponseWriter, r *http.Request) {
+	function := "AddRoundHandler"
 	if r.Method != "POST" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write(server.StrToBytes("Only POST requests are allowed at this route"))
+		PrintAndWriteErr(
+			w,
+			errors.New("Only POST requests are allowed at this route"),
+			http.StatusMethodNotAllowed,
+			function,
+		)
 		return
 	}
 
 	// TODO: Verify 'round' is a datestring in the YYYY-MM-DDTHH:mm:ss[Z] format
 	values, err := getQueryParams(r, []string{"org", "round"})
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteStatusBadRequestErr(w, err, function)
 		return
 	}
 
@@ -44,13 +48,16 @@ func AddRoundHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = addRound(orgname, roundDate)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteStatusBadRequestErr(w, err, function)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	w.Write(server.StrToBytes("Successfully scheduled a new round"))
+	PrintAndWrite(
+		w,
+		server.StrToBytes("Successfully scheduled a new round"),
+		http.StatusCreated,
+		function,
+	)
 }
 
 // GetRoundsHandler : HTTP handler for retrieving the dates for all rounds scheduled
@@ -68,20 +75,20 @@ func GetRoundsHandler(w http.ResponseWriter, r *http.Request) {
 
 	orgname, err := getQueryParam(r, "org")
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusBadRequest, function)
+		PrintAndWriteStatusBadRequestErr(w, err, function)
 		return
 	}
 
 	rounds, err := getRoundsFromDB(orgname)
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
 	resp := GetRoundsResponse{Rounds: rounds}
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
@@ -100,8 +107,12 @@ func RoundHandler(w http.ResponseWriter, r *http.Request) {
 	} else if r.Method == "DELETE" {
 		RemoveRoundHandler(w, r)
 	} else {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write(server.StrToBytes("Only POST and DELETE requests are allowed at this route"))
+		PrintAndWriteErr(
+			w,
+			errors.New("Only POST and DELETE requests are allowed at this route"),
+			http.StatusMethodNotAllowed,
+			"RoundHandler",
+		)
 		return
 	}
 }
@@ -138,40 +149,47 @@ func getRoundsFromDB(orgname string) ([]string, error) {
 
 // RemoveRoundHandler : HTTP handler for cancelling a previously scheduled round
 func RemoveRoundHandler(w http.ResponseWriter, r *http.Request) {
+	function := "RemoveRoundHandler"
 	if r.Method != "DELETE" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write(server.StrToBytes("Only DELETE requests are allowed at this route"))
+		PrintAndWriteErr(
+			w,
+			errors.New("Only DELETE requests are allowed at this route"),
+			http.StatusMethodNotAllowed,
+			function,
+		)
 		return
 	}
 
 	values, err := getQueryParams(r, []string{"org", "roundId"})
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteStatusBadRequestErr(w, err, function)
 		return
 	}
 
 	orgname := values[0]
 	roundID, err := strconv.Atoi(values[1])
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
 	err = removeRound(orgname, roundID)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	w.Write(server.StrToBytes("Successfully removed round"))
+	PrintAndWrite(
+		w,
+		server.StrToBytes("Successfully removed round"),
+		http.StatusCreated,
+		function,
+	)
 }
 
 // RescheduleRoundHandler : HTTP handler for rescheduling the date of a particular round
 func RescheduleRoundHandler(w http.ResponseWriter, r *http.Request) {
+	function := "RescheduleRoundHandler"
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		w.Write(server.StrToBytes("Only POST requests are allowed at this route"))
@@ -180,8 +198,7 @@ func RescheduleRoundHandler(w http.ResponseWriter, r *http.Request) {
 
 	values, err := getQueryParams(r, []string{"org", "round", "roundId"})
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteStatusBadRequestErr(w, err, function)
 		return
 	}
 
@@ -189,20 +206,22 @@ func RescheduleRoundHandler(w http.ResponseWriter, r *http.Request) {
 	roundDate := values[1]
 	roundID, err := strconv.Atoi(values[2])
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
 	err = rescheduleRound(orgname, roundDate, roundID)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	w.Write(server.StrToBytes("Succesfully changed date of the round"))
+	PrintAndWrite(
+		w,
+		server.StrToBytes("Succesfully changed date of the round"),
+		http.StatusCreated,
+		function,
+	)
 }
 
 func addRound(orgname string, roundDate string) error {

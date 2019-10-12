@@ -36,13 +36,13 @@ func GetPairsHandler(w http.ResponseWriter, r *http.Request) {
 
 	orgname, err := getQueryParam(r, "org")
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusBadRequest, function)
+		PrintAndWriteStatusBadRequestErr(w, err, function)
 		return
 	}
 
 	roundPairs, err := getPairsFromDB(orgname)
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
@@ -52,7 +52,7 @@ func GetPairsHandler(w http.ResponseWriter, r *http.Request) {
 
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 

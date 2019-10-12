@@ -30,54 +30,60 @@ type SetCrossMatchTraitRequestBody struct {
 
 // GetOrganizationsHandler : HTTP Handler for fetching all the organizations an admin manages
 func GetOrganizationsHandler(w http.ResponseWriter, r *http.Request) {
+	function := "GetOrganizationsHandler"
 	if r.Method != "GET" && r.Method != "" {
-		fmt.Println(r.Method + " Only GET requests are allowed at this route")
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write(server.StrToBytes("Only GET requests are allowed at this route"))
+		PrintAndWriteErr(
+			w,
+			errors.New("Only GET requests are allowed at this route"),
+			http.StatusMethodNotAllowed,
+			function,
+		)
 		return
 	}
 
 	queries, ok := r.URL.Query()["admin"]
 	if !ok || len(queries) > 1 {
-		fmt.Println("Request query parameters must contain admin")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(server.StrToBytes("Request query parameters must contain admin"))
+		PrintAndWriteErr(
+			w,
+			errors.New("request query parameters must contain 'admin'"),
+			http.StatusBadRequest,
+			function,
+		)
 		return
 	}
 
 	organizations, err := getOrganizations(queries[0])
 	if err != nil {
-		fmt.Println(err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
 	resp := map[string][]string{"orgs": organizations}
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		fmt.Println(err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(bytes)
+	PrintAndWrite(w, bytes, http.StatusOK, function)
 }
 
 // CreateOrganizationHandler : HTTP handler for creating a new organization
 func CreateOrganizationHandler(w http.ResponseWriter, r *http.Request) {
+	function := "CreateOrganizationHandler"
 	if r.Method != "POST" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write(server.StrToBytes("Only POST requests are allowed at this route"))
+		PrintAndWriteErr(
+			w,
+			errors.New("Only POST requests are allowed at this route"),
+			http.StatusMethodNotAllowed,
+			function,
+		)
 		return
 	}
 
 	bytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(server.StrToBytes("Malformed body."))
+		PrintAndWriteStatusBadRequestErr(w, err, function)
 		return
 	}
 	defer r.Body.Close()
@@ -85,15 +91,18 @@ func CreateOrganizationHandler(w http.ResponseWriter, r *http.Request) {
 	var body CreateOrganizationRequestBody
 	err = json.Unmarshal(bytes, &body)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(server.StrToBytes("Request body is malformed"))
+		PrintAndWriteStatusBadRequestErr(w, err, function)
 		return
 	}
 
 	queries, ok := r.URL.Query()["admin"]
 	if !ok || len(queries) > 1 {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(server.StrToBytes("Request query parameters must contain admin"))
+		PrintAndWriteErr(
+			w,
+			errors.New("request query parameters must contain 'admin'"),
+			http.StatusBadRequest,
+			function,
+		)
 		return
 	}
 	admin := queries[0]
@@ -102,13 +111,16 @@ func CreateOrganizationHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = createOrganization(body.Organization, admin)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(server.ErrToBytes(err))
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	w.Write(server.StrToBytes("Successfully created new organization"))
+	PrintAndWrite(
+		w,
+		server.StrToBytes("Successfully created new organization"),
+		http.StatusCreated,
+		function,
+	)
 }
 
 // CrossMatchTraitHandler : HTTP handler for changing or setting a cross match trait for an organization
@@ -121,7 +133,7 @@ func CrossMatchTraitHandler(w http.ResponseWriter, r *http.Request) {
 
 	orgname, err := getQueryParam(r, "org")
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusBadRequest, function)
+		PrintAndWriteStatusBadRequestErr(w, err, function)
 		return
 	}
 

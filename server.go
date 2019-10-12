@@ -82,6 +82,14 @@ func PrintAndWrite(w http.ResponseWriter, bytes []byte, status int, function str
 	w.Write(bytes)
 }
 
+func PrintAndWriteStatusBadRequestErr(w http.ResponseWriter, err error, function string) {
+	PrintAndWriteErr(w, err, http.StatusBadRequest, function)
+}
+
+func PrintAndWriteStatusInternalServerError(w http.ResponseWriter, err error, function string) {
+	PrintAndWriteStatusInternalServerError(w, err, function)
+}
+
 func main() {
 	args := os.Args
 	if len(args) == 2 {

@@ -75,13 +75,13 @@ func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
 
 	orgname, err := getQueryParam(r, "org")
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusBadRequest, function)
+		PrintAndWriteStatusBadRequestErr(w, err, function)
 		return
 	}
 
 	members, err := getActiveMembersFromDBAsMap(orgname)
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
@@ -96,7 +96,7 @@ func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
 
 	crossMatchTrait, err := GetCrossMatchTrait(orgname)
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
@@ -110,7 +110,7 @@ func GetMembersHandler(w http.ResponseWriter, r *http.Request) {
 
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
@@ -133,19 +133,19 @@ func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 
 	orgname, err := getQueryParam(r, "org")
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusBadRequest, function)
+		PrintAndWriteStatusBadRequestErr(w, err, function)
 		return
 	}
 
 	err = r.ParseMultipartForm(MaxMemory)
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusBadRequest, function)
+		PrintAndWriteStatusBadRequestErr(w, err, function)
 		return
 	}
 
 	formFile, handler, err := r.FormFile("members")
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusBadRequest, function)
+		PrintAndWriteStatusBadRequestErr(w, err, function)
 		return
 	}
 
@@ -155,20 +155,20 @@ func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 
 	file, err := os.OpenFile(filename, FileFlag, ReadWritePermissions)
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 	defer file.Close()
 
 	_, err = io.Copy(file, formFile)
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
 	members, err := createMembersFromCSV(orgname, filename)
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
@@ -186,7 +186,7 @@ func CreateMembersHandler(w http.ResponseWriter, r *http.Request) {
 
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		PrintAndWriteErr(w, err, http.StatusInternalServerError, function)
+		PrintAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 

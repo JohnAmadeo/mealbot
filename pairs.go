@@ -25,7 +25,7 @@ type GetPairsResponse struct {
 func GetPairsHandler(w http.ResponseWriter, r *http.Request) {
 	function := "GetPairsHandler"
 	if r.Method != "GET" {
-		PrintAndWriteErr(
+		LogAndWriteErr(
 			w,
 			errors.New("Only GET requests are allowed at this route"),
 			http.StatusMethodNotAllowed,
@@ -36,13 +36,13 @@ func GetPairsHandler(w http.ResponseWriter, r *http.Request) {
 
 	orgname, err := getQueryParam(r, "org")
 	if err != nil {
-		PrintAndWriteStatusBadRequestErr(w, err, function)
+		LogAndWriteStatusBadRequest(w, err, function)
 		return
 	}
 
 	roundPairs, err := getPairsFromDB(orgname)
 	if err != nil {
-		PrintAndWriteStatusInternalServerError(w, err, function)
+		LogAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
@@ -52,7 +52,7 @@ func GetPairsHandler(w http.ResponseWriter, r *http.Request) {
 
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		PrintAndWriteStatusInternalServerError(w, err, function)
+		LogAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 

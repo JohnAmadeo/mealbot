@@ -128,12 +128,9 @@ func (mm MembersMap) String() string {
 	return str
 }
 
-func runPairingRound(orgname string, roundNum int, testMode bool) error {
-	members, err := getMinimalMembersFromDB(orgname)
-	if err != nil {
-		return err
-	}
+type RandomIntGenerator func(int) int
 
+func runPairingAlgorithm(members MembersMap, roundNum int, genRandomInt RandomIntGenerator) (MembersMap, Round) {
 	memberIds := []string{}
 	for id := range members {
 		memberIds = append(memberIds, id)
@@ -154,7 +151,7 @@ func runPairingRound(orgname string, roundNum int, testMode bool) error {
 		// hold out odd member out and add it back in at the end of round
 		var extraMemberID string
 		if len(tempMembers)%2 == 1 {
-			extraMemberID = memberIds[rand.Intn(len(memberIds))]
+			extraMemberID = memberIds[genRandomInt(len(memberIds))]
 		}
 
 		for _, memberID := range memberIds {
@@ -186,11 +183,11 @@ func runPairingRound(orgname string, roundNum int, testMode bool) error {
 			var partner MinimalMember
 			switch {
 			case len(goodCandidates) > 0:
-				partner = selectRandomPartner(goodCandidates)
+				partner = selectRandomPartner(genRandomInt, goodCandidates)
 			case len(okCandidates) > 0:
-				partner = selectRandomPartner(okCandidates)
+				partner = selectRandomPartner(genRandomInt, okCandidates)
 			default:
-				partner = selectRandomPartner(badCandidates)
+				partner = selectRandomPartner(genRandomInt, badCandidates)
 				numRecentMatches++
 			}
 
@@ -207,6 +204,17 @@ func runPairingRound(orgname string, roundNum int, testMode bool) error {
 			break
 		}
 	}
+
+	return members, round
+}
+
+func runPairingRound(orgname string, roundNum int, testMode bool) error {
+	members, err := getMinimalMembersFromDB(orgname)
+	if err != nil {
+		return err
+	}
+
+	members, round := runPairingAlgorithm(members, roundNum, rand.Intn)
 
 	if !testMode {
 		err = sendEmails(orgname, round, members)
@@ -237,8 +245,8 @@ func sendEmails(orgname string, round Round, members MembersMap) error {
 	return nil
 }
 
-func selectRandomPartner(members []MinimalMember) MinimalMember {
-	return members[rand.Intn(len(members))]
+func selectRandomPartner(genRandomInt RandomIntGenerator, members []MinimalMember) MinimalMember {
+	return members[genRandomInt(len(members))]
 }
 
 func getMinimalMembersFromDB(orgname string) (MembersMap, error) {

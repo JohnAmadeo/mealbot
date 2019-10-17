@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/johnamadeo/server"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -62,32 +61,6 @@ func runTestSequence(testMode bool) {
 
 		i++
 	}
-}
-
-func PrintAndWriteErr(w http.ResponseWriter, err error, status int, function string) {
-	log.WithFields(log.Fields{
-		"logger":   "logrus",
-		"status":   status,
-		"function": function,
-	}).Error(err)
-	w.WriteHeader(status)
-	w.Write(server.ErrToBytes(err))
-}
-
-func PrintAndWrite(w http.ResponseWriter, bytes []byte, status int, function string) {
-	log.WithFields(log.Fields{
-		"logger":   "logrus",
-		"function": function,
-	}).Debug(status)
-	w.Write(bytes)
-}
-
-func PrintAndWriteStatusBadRequestErr(w http.ResponseWriter, err error, function string) {
-	PrintAndWriteErr(w, err, http.StatusBadRequest, function)
-}
-
-func PrintAndWriteStatusInternalServerError(w http.ResponseWriter, err error, function string) {
-	PrintAndWriteStatusInternalServerError(w, err, function)
 }
 
 func main() {

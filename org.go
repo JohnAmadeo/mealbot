@@ -32,7 +32,7 @@ type SetCrossMatchTraitRequestBody struct {
 func GetOrganizationsHandler(w http.ResponseWriter, r *http.Request) {
 	function := "GetOrganizationsHandler"
 	if r.Method != "GET" && r.Method != "" {
-		PrintAndWriteErr(
+		LogAndWriteErr(
 			w,
 			errors.New("Only GET requests are allowed at this route"),
 			http.StatusMethodNotAllowed,
@@ -43,7 +43,7 @@ func GetOrganizationsHandler(w http.ResponseWriter, r *http.Request) {
 
 	queries, ok := r.URL.Query()["admin"]
 	if !ok || len(queries) > 1 {
-		PrintAndWriteErr(
+		LogAndWriteErr(
 			w,
 			errors.New("request query parameters must contain 'admin'"),
 			http.StatusBadRequest,
@@ -54,25 +54,25 @@ func GetOrganizationsHandler(w http.ResponseWriter, r *http.Request) {
 
 	organizations, err := getOrganizations(queries[0])
 	if err != nil {
-		PrintAndWriteStatusInternalServerError(w, err, function)
+		LogAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
 	resp := map[string][]string{"orgs": organizations}
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		PrintAndWriteStatusInternalServerError(w, err, function)
+		LogAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
-	PrintAndWrite(w, bytes, http.StatusOK, function)
+	LogAndWrite(w, bytes, http.StatusOK, function)
 }
 
 // CreateOrganizationHandler : HTTP handler for creating a new organization
 func CreateOrganizationHandler(w http.ResponseWriter, r *http.Request) {
 	function := "CreateOrganizationHandler"
 	if r.Method != "POST" {
-		PrintAndWriteErr(
+		LogAndWriteErr(
 			w,
 			errors.New("Only POST requests are allowed at this route"),
 			http.StatusMethodNotAllowed,
@@ -83,7 +83,7 @@ func CreateOrganizationHandler(w http.ResponseWriter, r *http.Request) {
 
 	bytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		PrintAndWriteStatusBadRequestErr(w, err, function)
+		LogAndWriteStatusBadRequest(w, err, function)
 		return
 	}
 	defer r.Body.Close()
@@ -91,13 +91,13 @@ func CreateOrganizationHandler(w http.ResponseWriter, r *http.Request) {
 	var body CreateOrganizationRequestBody
 	err = json.Unmarshal(bytes, &body)
 	if err != nil {
-		PrintAndWriteStatusBadRequestErr(w, err, function)
+		LogAndWriteStatusBadRequest(w, err, function)
 		return
 	}
 
 	queries, ok := r.URL.Query()["admin"]
 	if !ok || len(queries) > 1 {
-		PrintAndWriteErr(
+		LogAndWriteErr(
 			w,
 			errors.New("request query parameters must contain 'admin'"),
 			http.StatusBadRequest,
@@ -111,11 +111,11 @@ func CreateOrganizationHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = createOrganization(body.Organization, admin)
 	if err != nil {
-		PrintAndWriteStatusInternalServerError(w, err, function)
+		LogAndWriteStatusInternalServerError(w, err, function)
 		return
 	}
 
-	PrintAndWrite(
+	LogAndWrite(
 		w,
 		server.StrToBytes("Successfully created new organization"),
 		http.StatusCreated,
@@ -127,19 +127,19 @@ func CreateOrganizationHandler(w http.ResponseWriter, r *http.Request) {
 func CrossMatchTraitHandler(w http.ResponseWriter, r *http.Request) {
 	function := "CrossMatchTraitHandler"
 	if r.Method != "POST" {
-		PrintAndWriteErr(w, errors.New("Only POST requests are allowed at this route"), http.StatusMethodNotAllowed, function)
+		LogAndWriteErr(w, errors.New("Only POST requests are allowed at this route"), http.StatusMethodNotAllowed, function)
 		return
 	}
 
 	orgname, err := getQueryParam(r, "org")
 	if err != nil {
-		PrintAndWriteStatusBadRequestErr(w, err, function)
+		LogAndWriteStatusBadRequest(w, err, function)
 		return
 	}
 
 	bytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		PrintAndWriteErr(w, errors.New("Malformed body."), http.StatusBadRequest, function)
+		LogAndWriteErr(w, errors.New("Malformed body."), http.StatusBadRequest, function)
 		return
 	}
 	defer r.Body.Close()
@@ -147,7 +147,7 @@ func CrossMatchTraitHandler(w http.ResponseWriter, r *http.Request) {
 	var body SetCrossMatchTraitRequestBody
 	err = json.Unmarshal(bytes, &body)
 	if err != nil {
-		PrintAndWriteErr(w, errors.New("Request body is malformed"), http.StatusBadRequest, function)
+		LogAndWriteErr(w, errors.New("Request body is malformed"), http.StatusBadRequest, function)
 		return
 	}
 
@@ -158,7 +158,7 @@ func CrossMatchTraitHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	PrintAndWrite(w, server.StrToBytes("Successfully set the cross match trait"), http.StatusCreated, function)
+	LogAndWrite(w, server.StrToBytes("Successfully set the cross match trait"), http.StatusCreated, function)
 }
 
 // GetOrganizations :

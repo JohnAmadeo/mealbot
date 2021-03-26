@@ -100,7 +100,7 @@ func main() {
 	serveMux.Handle("/rounds", mw.Apply(GetRoundsHandler))
 	serveMux.Handle("/round", mw.Apply(RoundHandler))
 	serveMux.Handle("/pairs", mw.Apply(GetPairsHandler))
-	// serveMux.Handle("/", http.FileServer(http.Dir("./static")))
+	serveMux.Handle("/", http.FileServer(http.Dir("./static")))
 
 	port := os.Getenv("PORT")
 	if port == "" {

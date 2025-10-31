@@ -1,6 +1,6 @@
 # Intro (for people new to Go)
 - Check out [A Tour of Go](https://tour.golang.org/welcome/1) to learn Go syntax
-- Download Go [Downloads](https://golang.org/dl/)
+- Foobarbaz
 - Walk through [How to Write Go Code](https://golang.org/doc/code.html) to learn how to fetch, build, and install Go code on your local machine
 
 # Get Started
